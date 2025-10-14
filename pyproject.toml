@@ -5,6 +5,7 @@ description = "Add your description here"
 authors = [ ]
 requires-python = ">=3.14"
 dependencies = [
+    "pydantic>=2.12.1",
     "textual>=6.3.0",
     "typer>=0.19.2",
 ]
@@ -23,6 +24,7 @@ packages = ["src/task_tui"]
 dev = [
     "python-lsp-server>=1.13.1",
     "ruff>=0.14.0",
+    "ty>=0.0.1a22",
 ]
 
 

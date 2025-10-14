@@ -31,9 +31,9 @@ class Task(BaseModel):
     scheduled: IsoDateTime | None = None
     wait: IsoDateTime | None = None
     end: IsoDateTime | None = None
+    until: IsoDateTime | None = None
     recur: str | None = None
     project: str | None = None
-    until: str | None = None
     status: Status
     uuid: UUID
     urgency: float
