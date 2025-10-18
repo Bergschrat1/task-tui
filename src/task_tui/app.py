@@ -53,6 +53,13 @@ class TaskStore:
             ret.append(",".join(dep_ids))
         return ret
 
+    @property
+    def tags(self):
+        ret = []
+        for task in self.tasks:
+            ret.append(",".join(task.tags or []))
+        return ret
+
 
 class TaskReport(DataTable):
     pass
@@ -84,6 +91,8 @@ class TaskTuiApp(App):
 
     def on_mount(self):
         table = self.query_one(TaskReport)
+        table.cursor_type = "row"
+        table.zebra_stripes = True
         columns = [h[0].split(".")[0] for h in self.headings]
         labels = [h[1] for h in self.headings]
         data = [getattr(self.tasks, col) for col in columns]
