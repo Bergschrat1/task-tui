@@ -4,13 +4,17 @@ from typing import Any
 from uuid import UUID
 
 from textual.app import App, ComposeResult
+from textual.binding import Binding
 from textual.reactive import reactive
-from textual.widgets import DataTable
+from textual.widgets import DataTable, Footer
 
 from task_tui.data_models import Task
+from task_tui.task import TaskCli
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
+
+task_cli = TaskCli()
 
 
 class TaskStore:
@@ -41,6 +45,11 @@ class TaskStore:
 
         return ret
 
+    def __getitem__(self, idx: int) -> Task:
+        if not isinstance(idx, int):
+            raise IndexError("Index needs to be an integer")
+        return self.tasks[idx]
+
     @property
     def depends(self):
         ret = []
@@ -69,9 +78,14 @@ class TaskTuiApp(App):
     headings: reactive[list[tuple[str, str]]] = reactive(list())
     # tasks: reactive[list[Task]] = reactive(list())
     tasks: TaskStore
+    BINDINGS = [
+        Binding("q", "quit", "Quit"),
+        Binding("d", "set_done", "Set done"),
+    ]
 
     def compose(self) -> ComposeResult:
         yield TaskReport()
+        yield Footer()
 
     def _data_empty(self, data) -> bool:
         return all(v in ("", None, []) for v in data)
@@ -100,3 +114,9 @@ class TaskTuiApp(App):
         rows = list(map(list, zip(*data)))
         table.add_columns(*labels)
         table.add_rows(rows)
+
+    def action_set_done(self):
+        table = self.query_one(TaskReport)
+        current_task = self.tasks[table.cursor_row]
+        log.info("Setting task %s to done", current_task.id)
+        task_cli.set_task_done(current_task.uuid)

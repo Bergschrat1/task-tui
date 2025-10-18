@@ -1,5 +1,6 @@
 import logging
 import subprocess
+from uuid import UUID
 
 from task_tui.data_models import Task
 
@@ -11,13 +12,13 @@ class TaskCli:
 
     def __init__(self) -> None:
         try:
-            self.run_task("show")
+            self._run_task("show")
         except FileNotFoundError:
             raise FileNotFoundError("The task CLI tool doesn't seem to be installed.")
         except Exception:
             raise Exception("Could not run `task show`")
 
-    def run_task(self, *args: str, **kwargs) -> subprocess.CompletedProcess:
+    def _run_task(self, *args: str, **kwargs) -> subprocess.CompletedProcess:
         command = [self.base_command, *args]
         log.debug("Running `%s`", " ".join(command))
         return subprocess.run(command, text=True, capture_output=True, **kwargs)
@@ -26,13 +27,13 @@ class TaskCli:
         command = ["rc.json.array=0", "export"]
         if report:
             command.append(report)
-        export: str = self.run_task(*command).stdout
+        export: str = self._run_task(*command).stdout
         tasks = [Task.model_validate_json(t) for t in export.strip().split("\n")]
         return tasks
 
     def get_report_columns(self, report: str) -> list[tuple[str, str]]:
         command = ["show", "rc.defaultwidth=0", f"report.{report}.columns"]
-        column_output: str = self.run_task(*command).stdout.strip()
+        column_output: str = self._run_task(*command).stdout.strip()
         for line in column_output.split("\n"):
             if line.startswith(f"report.{report}.columns"):
                 columns = line.split(" ")[1].split(",")
@@ -41,7 +42,7 @@ class TaskCli:
             raise ValueError("Could not extract columns.")
 
         command = ["show", "rc.defaultwidth=0", f"report.{report}.labels"]
-        label_output: str = self.run_task(*command).stdout.strip()
+        label_output: str = self._run_task(*command).stdout.strip()
         for line in label_output.split("\n"):
             if line.startswith(f"report.{report}.labels"):
                 labels = line.split(" ")[1].split(",")
@@ -50,3 +51,6 @@ class TaskCli:
             raise ValueError("Could not extract labels.")
 
         return [(column, label) for column, label in zip(columns, labels)]
+
+    def set_task_done(self, uuid: UUID):
+        self._run_task(str(uuid), "done")
