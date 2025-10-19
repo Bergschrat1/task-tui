@@ -5,8 +5,10 @@ from uuid import UUID
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
+from textual.containers import Grid, Horizontal
 from textual.reactive import reactive
-from textual.widgets import DataTable, Footer
+from textual.screen import ModalScreen
+from textual.widgets import Button, DataTable, Footer, Label
 
 from task_tui.data_models import Task
 from task_tui.task import TaskCli
@@ -32,7 +34,7 @@ class TaskStore:
     def _get_task_column(self, col_name: str) -> list[Any]:
         return [getattr(task, col_name) for task in self.tasks]
 
-    def __getattr__(self, attribute_name: str):
+    def __getattr__(self, attribute_name: str) -> list[Any]:
         if attribute_name not in Task.model_fields:
             msg = "'{0}': object has no attribute '{1}'"
             raise AttributeError(msg.format(type(self).__name__, attribute_name))
@@ -51,7 +53,7 @@ class TaskStore:
         return self.tasks[idx]
 
     @property
-    def depends(self):
+    def depends(self) -> list[str]:
         ret = []
         for task in self.tasks:
             dep_ids = []
@@ -63,21 +65,47 @@ class TaskStore:
         return ret
 
     @property
-    def tags(self):
+    def tags(self) -> list[str]:
         ret = []
         for task in self.tasks:
             ret.append(",".join(task.tags or []))
         return ret
 
 
+class ConfirmDone(ModalScreen):
+    """Screen with a dialog to quit."""
+
+    task_to_complete: Task
+
+    def compose(self) -> ComposeResult:
+        yield Grid(
+            Label(f'Are you sure you want set task "{self.task_to_complete.description}" ({self.task_to_complete.id}) to done?', id="question"),
+            Horizontal(
+                Button("Yes", variant="error", id="yes"),
+                Button("No", variant="primary", id="no"),
+            ),
+            id="dialog",
+        )
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "yes":
+            self.dismiss(True)
+        else:
+            self.app.pop_screen()
+
+
 class TaskReport(DataTable):
-    pass
+    def on_mount(self) -> None:
+        self.cursor_type = "row"
+        self.zebra_stripes = True
+        self.app._update_table()
 
 
 class TaskTuiApp(App):
+    CSS_PATH = "./TasTuiApp.tscc"
     headings: reactive[list[tuple[str, str]]] = reactive(list())
-    # tasks: reactive[list[Task]] = reactive(list())
-    tasks: TaskStore
+    tasks = reactive(TaskStore([]), recompose=True)
+    report: str
     BINDINGS = [
         Binding("q", "quit", "Quit"),
         Binding("d", "set_done", "Set done"),
@@ -87,7 +115,7 @@ class TaskTuiApp(App):
         yield TaskReport()
         yield Footer()
 
-    def _data_empty(self, data) -> bool:
+    def _data_empty(self, data: list[Any]) -> bool:
         return all(v in ("", None, []) for v in data)
 
     def _clean_empty_columns(
@@ -103,10 +131,19 @@ class TaskTuiApp(App):
             list(compress(data, keep)),
         )
 
-    def on_mount(self):
+    def _update_tasks(self) -> None:
+        """Update the tasks using the task cli.
+
+        NOTE: Updating the task will trigger a table update.
+        """
+        tasks = task_cli.export_tasks(self.report)
+        log.debug(f"Got {len(tasks)} new tasks.")
+        self.tasks = TaskStore(tasks)
+        self.headings = task_cli.get_report_columns(self.report)
+
+    def _update_table(self) -> None:
         table = self.query_one(TaskReport)
-        table.cursor_type = "row"
-        table.zebra_stripes = True
+        table.clear()
         columns = [h[0].split(".")[0] for h in self.headings]
         labels = [h[1] for h in self.headings]
         data = [getattr(self.tasks, col) for col in columns]
@@ -115,8 +152,21 @@ class TaskTuiApp(App):
         table.add_columns(*labels)
         table.add_rows(rows)
 
-    def action_set_done(self):
+    def on_mount(self) -> None:
+        self._update_tasks()
+
+    def watch_tasks(self) -> None:
+        log.debug("Tasks have changed! Updating table")
+        self._update_table()
+
+    def action_set_done(self) -> None:
+        def check_done(quit: bool | None) -> None:
+            if quit:
+                task_cli.set_task_done(current_task)
+                self._update_tasks()
+
         table = self.query_one(TaskReport)
         current_task = self.tasks[table.cursor_row]
-        log.info("Setting task %s to done", current_task.id)
-        task_cli.set_task_done(current_task.uuid)
+        confirm_done_scree = ConfirmDone()
+        confirm_done_scree.task_to_complete = current_task
+        self.push_screen(confirm_done_scree, check_done)

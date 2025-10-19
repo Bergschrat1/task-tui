@@ -1,6 +1,5 @@
 import logging
 import subprocess
-from uuid import UUID
 
 from task_tui.data_models import Task
 
@@ -52,5 +51,6 @@ class TaskCli:
 
         return [(column, label) for column, label in zip(columns, labels)]
 
-    def set_task_done(self, uuid: UUID):
-        self._run_task(str(uuid), "done")
+    def set_task_done(self, task):
+        log.info("Setting task %s to done", task.id)
+        self._run_task(str(task.uuid), "done")

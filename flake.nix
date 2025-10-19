@@ -29,6 +29,8 @@
               uv sync
               . .venv/bin/activate
             '';
+
+            TASKDATA = "./test_data/";
           };
         }
       );

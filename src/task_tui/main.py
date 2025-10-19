@@ -2,7 +2,7 @@ import logging
 
 import typer
 
-from task_tui.app import TaskStore, TaskTuiApp
+from task_tui.app import TaskTuiApp
 from task_tui.task import TaskCli
 
 typer_app = typer.Typer()
@@ -24,20 +24,17 @@ def health():
 
 @typer_app.command()
 def task_tui(report: str = DEFAULT_REPORT):
-    task_cli = TaskCli()
-    tasks = task_cli.export_tasks(report)
-    headings = task_cli.get_report_columns(report)
+    log.debug("Starting TUI with report %s.", report)
     task_tui_app = TaskTuiApp()
-    task_tui_app.tasks = TaskStore(tasks)
-    task_tui_app.headings = headings
+    task_tui_app.report = report
     task_tui_app.run()
-
 
 
 @typer_app.callback(invoke_without_command=True)
 def main(ctx: typer.Context, verbose: bool = False):
     logging_level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(format="%(asctime)s %(name)s %(levelname)s:%(message)s", level=logging_level)
+    logging.basicConfig(format="%(asctime)s %(name)s %(levelname)s:%(message)s", level=logging_level, filename="./task-tui.log")
+    log.debug("\nStarting application.")
     log.info("Logging Level is %s", logging_level)
     if ctx.invoked_subcommand is None:  # run default TUI if no command given
         ctx.invoke(task_tui)
