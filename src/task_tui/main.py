@@ -25,8 +25,7 @@ def health() -> None:
 @typer_app.command()
 def task_tui(report: str = DEFAULT_REPORT) -> None:
     log.debug("Starting TUI with report %s.", report)
-    task_tui_app = TaskTuiApp()
-    task_tui_app.report = report
+    task_tui_app = TaskTuiApp(report)
     task_tui_app.run()
 
 

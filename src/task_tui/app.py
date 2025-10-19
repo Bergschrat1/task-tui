@@ -5,7 +5,7 @@ from uuid import UUID
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Grid, Horizontal
+from textual.containers import Grid
 from textual.reactive import reactive
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Footer, Label
@@ -72,26 +72,40 @@ class TaskStore:
         return ret
 
 
-class ConfirmDone(ModalScreen):
-    """Screen with a dialog to quit."""
+class ConfirmDialog(ModalScreen):
+    """Screen with a dialog to confirm an action."""
 
     task_to_complete: Task
+    BINDINGS = [
+        Binding("y", "confirm", "Confirm"),
+        Binding("n", "cancel", "Cancel"),
+        Binding("escape", "cancel", "Cancel"),
+        Binding("return", "confirm", "Confirm"),
+    ]
+
+    def __init__(self, prompt: str) -> None:
+        self.prompt = prompt
+        super().__init__()
 
     def compose(self) -> ComposeResult:
         yield Grid(
-            Label(f'Are you sure you want set task "{self.task_to_complete.description}" ({self.task_to_complete.id}) to done?', id="question"),
-            Horizontal(
-                Button("Yes", variant="error", id="yes"),
-                Button("No", variant="primary", id="no"),
-            ),
+            Label(self.prompt, id="question"),
+            Button("Yes (Y)", variant="primary", id="yes"),
+            Button("No (N)", variant="error", id="no"),
             id="dialog",
         )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "yes":
-            self.dismiss(True)
+            self.action_confirm()
         else:
-            self.app.pop_screen()
+            self.action_cancel()
+
+    def action_confirm(self) -> None:
+        self.dismiss(True)
+
+    def action_cancel(self) -> None:
+        self.app.pop_screen()
 
 
 class TaskReport(DataTable):
@@ -107,9 +121,13 @@ class TaskTuiApp(App):
     tasks = reactive(TaskStore([]), recompose=True)
     report: str
     BINDINGS = [
-        Binding("q", "quit", "Quit"),
+        Binding("q,esc", "quit", "Quit"),
         Binding("d", "set_done", "Set done"),
     ]
+
+    def __init__(self, report: str) -> None:
+        self.report = report
+        super().__init__()
 
     def compose(self) -> ComposeResult:
         yield TaskReport()
@@ -159,14 +177,16 @@ class TaskTuiApp(App):
         log.debug("Tasks have changed! Updating table")
         self._update_table()
 
+    def action_quit(self) -> None:
+        confirm_quit_sqreen = ConfirmDialog("Are you sure you want to quit?")
+        self.push_screen(confirm_quit_sqreen, self.exit)
+
     def action_set_done(self) -> None:
-        def check_done(quit: bool | None) -> None:
-            if quit:
-                task_cli.set_task_done(current_task)
-                self._update_tasks()
+        def set_done(quit: bool | None) -> None:
+            task_cli.set_task_done(current_task)
+            self._update_tasks()
 
         table = self.query_one(TaskReport)
         current_task = self.tasks[table.cursor_row]
-        confirm_done_scree = ConfirmDone()
-        confirm_done_scree.task_to_complete = current_task
-        self.push_screen(confirm_done_scree, check_done)
+        confirm_done_scree = ConfirmDialog(f'Are you sure you want set task "{current_task.description}" ({current_task.id}) to done?')
+        self.push_screen(confirm_done_scree, set_done)
