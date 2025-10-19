@@ -121,7 +121,7 @@ class TaskTuiApp(App):
     tasks = reactive(TaskStore([]), recompose=True)
     report: str
     BINDINGS = [
-        Binding("q,esc", "quit", "Quit"),
+        Binding("q,escape", "quit", "Quit"),
         Binding("d", "set_done", "Set done"),
     ]
 
