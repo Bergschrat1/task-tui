@@ -12,7 +12,7 @@ DEFAULT_REPORT = "next"
 
 
 @typer_app.command()
-def health():
+def health() -> None:
     try:
         log.debug("Initiating TaskCli")
         TaskCli()
@@ -23,7 +23,7 @@ def health():
 
 
 @typer_app.command()
-def task_tui(report: str = DEFAULT_REPORT):
+def task_tui(report: str = DEFAULT_REPORT) -> None:
     log.debug("Starting TUI with report %s.", report)
     task_tui_app = TaskTuiApp()
     task_tui_app.report = report
@@ -31,7 +31,7 @@ def task_tui(report: str = DEFAULT_REPORT):
 
 
 @typer_app.callback(invoke_without_command=True)
-def main(ctx: typer.Context, verbose: bool = False):
+def main(ctx: typer.Context, verbose: bool = False) -> None:
     logging_level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(format="%(asctime)s %(name)s %(levelname)s:%(message)s", level=logging_level, filename="./task-tui.log")
     log.debug("\nStarting application.")

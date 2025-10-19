@@ -17,10 +17,10 @@ class TaskCli:
         except Exception:
             raise Exception("Could not run `task show`")
 
-    def _run_task(self, *args: str, **kwargs) -> subprocess.CompletedProcess:
+    def _run_task(self, *args: str) -> subprocess.CompletedProcess:
         command = [self.base_command, *args]
         log.debug("Running `%s`", " ".join(command))
-        return subprocess.run(command, text=True, capture_output=True, **kwargs)
+        return subprocess.run(command, text=True, capture_output=True)
 
     def export_tasks(self, report: str | None = None) -> list[Task]:
         command = ["rc.json.array=0", "export"]
@@ -51,6 +51,6 @@ class TaskCli:
 
         return [(column, label) for column, label in zip(columns, labels)]
 
-    def set_task_done(self, task):
+    def set_task_done(self, task: Task) -> None:
         log.info("Setting task %s to done", task.id)
         self._run_task(str(task.uuid), "done")
