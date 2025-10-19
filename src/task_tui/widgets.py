@@ -4,6 +4,7 @@ from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Grid
+from textual.events import Key
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Footer, Input, Label
 
@@ -25,10 +26,8 @@ class ConfirmDialog(ModalScreen):
     """Screen with a dialog to confirm an action."""
 
     BINDINGS = [
-        Binding("y", "confirm", "Confirm"),
-        Binding("n", "cancel", "Cancel"),
-        Binding("escape", "cancel", "Cancel"),
-        Binding("enter,\\r", "confirm", "Confirm"),
+        Binding("enter,y", "confirm", "Confirm"),
+        Binding("escape,n", "cancel", "Cancel"),
     ]
 
     def __init__(self, prompt: str) -> None:
@@ -38,8 +37,7 @@ class ConfirmDialog(ModalScreen):
     def compose(self) -> ComposeResult:
         yield Grid(
             Label(self.prompt, id="question"),
-            MouseOnlyButton("Yes (Y)", variant="primary", id="yes"),
-            MouseOnlyButton("No (N)", variant="error", id="no"),
+            Footer(),
             id="dialog",
         )
 
@@ -52,10 +50,17 @@ class ConfirmDialog(ModalScreen):
         self.app.pop_screen()
 
 
+class BubblingEnterInput(Input):
+    def on_key(self, event: Key) -> None:
+        if event.key == "enter":
+            event.prevent_default()
+
+
 class TextInput(ModalScreen):
     prompt: str
     BINDINGS = [
         Binding("escape", "cancel", "Cancel"),
+        Binding("enter", "submit", "Submit", priority=True),
     ]
 
     def __init__(self, prompt: str) -> None:
@@ -65,13 +70,12 @@ class TextInput(ModalScreen):
     def compose(self) -> ComposeResult:
         yield Grid(
             Label(self.prompt, id="question"),
-            Input(id="input", type="text"),
+            BubblingEnterInput(id="input", type="text"),
             Footer(),
             id="dialog",
         )
 
-    @on(Input.Submitted)
-    def submit(self) -> None:
+    def action_submit(self) -> None:
         input_text = self.query_one("#input").value
         log.debug('Submitted input: "%s"', input_text)
         self.dismiss(input_text)
