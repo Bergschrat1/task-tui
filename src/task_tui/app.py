@@ -20,30 +20,6 @@ task_cli = TaskCli()
 class TaskStore:
     tasks: list[Task]
 
-    def __init__(self, tasks: list[Task]) -> None:
-        self.tasks = tasks
-
-    def _get_task_by_uuid(self, uuid: UUID) -> Task | None:
-        ret = [t for t in self.tasks if t.uuid == uuid]
-        if len(ret) > 1:
-            raise ValueError(f"Multiple tasks with the same UUID: {uuid}")
-        return ret[0] if ret else None
-
-    def _get_task_by_id(self, id: int) -> Task | None:
-        ret = [t for t in self.tasks if t.id == id]
-        if len(ret) > 1:
-            raise ValueError(f"Multiple tasks with the same ID: {id}")
-        return ret[0] if ret else None
-
-    def _get_index_by_uuid(self, uuid: UUID) -> int | None:
-        ret = [i for i, t in enumerate(self.tasks) if t.uuid == uuid]
-        if len(ret) > 1:
-            raise ValueError(f"Multiple tasks with the same UUID: {uuid}")
-        return ret[0] if ret else None
-
-    def _get_task_column(self, col_name: str) -> list[Any]:
-        return [getattr(task, col_name) for task in self.tasks]
-
     def __getattr__(self, attribute_name: str) -> list[Any]:
         if attribute_name not in Task.model_fields:
             msg = "'{0}': object has no attribute '{1}'"
@@ -61,6 +37,30 @@ class TaskStore:
         if not isinstance(idx, int):
             raise IndexError("Index needs to be an integer")
         return self.tasks[idx]
+
+    def __init__(self, tasks: list[Task]) -> None:
+        self.tasks = tasks
+
+    def _get_index_by_uuid(self, uuid: UUID) -> int | None:
+        ret = [i for i, t in enumerate(self.tasks) if t.uuid == uuid]
+        if len(ret) > 1:
+            raise ValueError(f"Multiple tasks with the same UUID: {uuid}")
+        return ret[0] if ret else None
+
+    def _get_task_by_id(self, id: int) -> Task | None:
+        ret = [t for t in self.tasks if t.id == id]
+        if len(ret) > 1:
+            raise ValueError(f"Multiple tasks with the same ID: {id}")
+        return ret[0] if ret else None
+
+    def _get_task_by_uuid(self, uuid: UUID) -> Task | None:
+        ret = [t for t in self.tasks if t.uuid == uuid]
+        if len(ret) > 1:
+            raise ValueError(f"Multiple tasks with the same UUID: {uuid}")
+        return ret[0] if ret else None
+
+    def _get_task_column(self, col_name: str) -> list[Any]:
+        return [getattr(task, col_name) for task in self.tasks]
 
     @property
     def depends(self) -> list[str]:
@@ -102,9 +102,6 @@ class TaskTuiApp(App):
         yield TaskReport()
         yield Footer()
 
-    def _data_empty(self, data: list[Any]) -> bool:
-        return all(v in ("", None, []) for v in data)
-
     def _clean_empty_columns(
         self,
         columns: list[str],
@@ -118,17 +115,8 @@ class TaskTuiApp(App):
             list(compress(data, keep)),
         )
 
-    def _update_tasks(self) -> None:
-        """Update the tasks using the task cli.
-
-        NOTE: Updating the task will trigger a table update.
-        """
-        log.debug("Updating tasks")
-        tasks = task_cli.export_tasks(self.report)
-        log.debug(f"Got {len(tasks)} new tasks.")
-        self.tasks = TaskStore(tasks)
-        self.headings = task_cli.get_report_columns(self.report)
-        self._update_table()
+    def _data_empty(self, data: list[Any]) -> bool:
+        return all(v in ("", None, []) for v in data)
 
     def _update_table(self) -> None:
         log.debug("Updating table")
@@ -142,9 +130,33 @@ class TaskTuiApp(App):
         table.add_columns(*labels)
         table.add_rows(rows)
 
+    def _update_tasks(self) -> None:
+        """Update the tasks using the task cli.
+
+        NOTE: Updating the task will trigger a table update.
+        """
+        log.debug("Updating tasks")
+        tasks = task_cli.export_tasks(self.report)
+        log.debug(f"Got {len(tasks)} new tasks.")
+        self.tasks = TaskStore(tasks)
+        self.headings = task_cli.get_report_columns(self.report)
+        self._update_table()
+
     def on_mount(self) -> None:
         log.debug("Mounting app")
         self._update_tasks()
+
+    def action_add_task(self) -> None:
+        def add_task(description: str) -> None:
+            new_task_id = task_cli.add_task(description)
+            self._update_tasks()
+            task = self.tasks._get_task_by_id(new_task_id)
+            task_index = self.tasks._get_index_by_uuid(task.uuid)
+            table = self.query_one(TaskReport)
+            table.move_cursor(row=task_index)
+
+        add_task_screen = TextInput("Enter task description")
+        self.push_screen(add_task_screen, add_task)
 
     def action_quit(self) -> None:
         confirm_quit_sqreen = ConfirmDialog("Are you sure you want to quit?")
@@ -163,15 +175,3 @@ class TaskTuiApp(App):
         current_task = self.tasks[table.cursor_row]
         confirm_done_scree = ConfirmDialog(f'Are you sure you want set task "{current_task.description}" ({current_task.id}) to done?')
         self.push_screen(confirm_done_scree, set_done)
-
-    def action_add_task(self) -> None:
-        def add_task(description: str) -> None:
-            new_task_id = task_cli.add_task(description)
-            self._update_tasks()
-            task = self.tasks._get_task_by_id(new_task_id)
-            task_index = self.tasks._get_index_by_uuid(task.uuid)
-            table = self.query_one(TaskReport)
-            table.move_cursor(row=task_index)
-
-        add_task_screen = TextInput("Enter task description")
-        self.push_screen(add_task_screen, add_task)
