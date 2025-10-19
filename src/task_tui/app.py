@@ -3,15 +3,16 @@ from itertools import compress
 from typing import Any
 from uuid import UUID
 
+from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Grid
-from textual.reactive import reactive
+from textual.reactive import reactive, var
 from textual.screen import ModalScreen
-from textual.widgets import Button, DataTable, Footer, Label
+from textual.widgets import Button, DataTable, Footer, Input, Label
 
 from task_tui.data_models import Task
-from task_tui.task import TaskCli
+from task_tui.task_cli import TaskCli
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -27,6 +28,18 @@ class TaskStore:
 
     def _get_task_by_uuid(self, uuid: UUID) -> Task | None:
         ret = [t for t in self.tasks if t.uuid == uuid]
+        if len(ret) > 1:
+            raise ValueError(f"Multiple tasks with the same UUID: {uuid}")
+        return ret[0] if ret else None
+
+    def _get_task_by_id(self, id: int) -> Task | None:
+        ret = [t for t in self.tasks if t.id == id]
+        if len(ret) > 1:
+            raise ValueError(f"Multiple tasks with the same ID: {id}")
+        return ret[0] if ret else None
+
+    def _get_index_by_uuid(self, uuid: UUID) -> int | None:
+        ret = [i for i, t in enumerate(self.tasks) if t.uuid == uuid]
         if len(ret) > 1:
             raise ValueError(f"Multiple tasks with the same UUID: {uuid}")
         return ret[0] if ret else None
@@ -72,15 +85,25 @@ class TaskStore:
         return ret
 
 
+class MouseOnlyButton(Button):
+    # Prevent keyboard focus and key activation; still clickable with mouse
+    can_focus = False
+
+    def key_enter(self) -> None:
+        pass
+
+    def key_space(self) -> None:
+        pass
+
+
 class ConfirmDialog(ModalScreen):
     """Screen with a dialog to confirm an action."""
 
-    task_to_complete: Task
     BINDINGS = [
         Binding("y", "confirm", "Confirm"),
         Binding("n", "cancel", "Cancel"),
         Binding("escape", "cancel", "Cancel"),
-        Binding("return", "confirm", "Confirm"),
+        Binding("enter,\\r", "confirm", "Confirm"),
     ]
 
     def __init__(self, prompt: str) -> None:
@@ -90,19 +113,43 @@ class ConfirmDialog(ModalScreen):
     def compose(self) -> ComposeResult:
         yield Grid(
             Label(self.prompt, id="question"),
-            Button("Yes (Y)", variant="primary", id="yes"),
-            Button("No (N)", variant="error", id="no"),
+            MouseOnlyButton("Yes (Y)", variant="primary", id="yes"),
+            MouseOnlyButton("No (N)", variant="error", id="no"),
             id="dialog",
         )
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "yes":
-            self.action_confirm()
-        else:
-            self.action_cancel()
-
     def action_confirm(self) -> None:
+        log.debug('Confirmed prompt "%s"', self.prompt)
         self.dismiss(True)
+
+    def action_cancel(self) -> None:
+        log.debug('Cancelled prompt "%s"', self.prompt)
+        self.app.pop_screen()
+
+
+class TextInput(ModalScreen):
+    prompt: str
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+    ]
+
+    def __init__(self, prompt: str) -> None:
+        self.prompt = prompt
+        super().__init__()
+
+    def compose(self) -> ComposeResult:
+        yield Grid(
+            Label(self.prompt, id="question"),
+            Input(id="input", type="text"),
+            Footer(),
+            id="dialog",
+        )
+
+    @on(Input.Submitted)
+    def submit(self) -> None:
+        input_text = self.query_one("#input").value
+        log.debug('Submitted input: "%s"', input_text)
+        self.dismiss(input_text)
 
     def action_cancel(self) -> None:
         self.app.pop_screen()
@@ -110,6 +157,7 @@ class ConfirmDialog(ModalScreen):
 
 class TaskReport(DataTable):
     def on_mount(self) -> None:
+        log.debug("TaskReport mounted")
         self.cursor_type = "row"
         self.zebra_stripes = True
         self.app._update_table()
@@ -118,11 +166,12 @@ class TaskReport(DataTable):
 class TaskTuiApp(App):
     CSS_PATH = "./TasTuiApp.tscc"
     headings: reactive[list[tuple[str, str]]] = reactive(list())
-    tasks = reactive(TaskStore([]), recompose=True)
+    tasks: reactive[TaskStore] = reactive(TaskStore([]))
     report: str
     BINDINGS = [
         Binding("q,escape", "quit", "Quit"),
         Binding("d", "set_done", "Set done"),
+        Binding("a", "add_task", "Add task"),
     ]
 
     def __init__(self, report: str) -> None:
@@ -154,12 +203,14 @@ class TaskTuiApp(App):
 
         NOTE: Updating the task will trigger a table update.
         """
+        log.debug("Updating tasks")
         tasks = task_cli.export_tasks(self.report)
         log.debug(f"Got {len(tasks)} new tasks.")
         self.tasks = TaskStore(tasks)
         self.headings = task_cli.get_report_columns(self.report)
 
     def _update_table(self) -> None:
+        log.debug("Updating table")
         table = self.query_one(TaskReport)
         table.clear()
         columns = [h[0].split(".")[0] for h in self.headings]
@@ -171,6 +222,7 @@ class TaskTuiApp(App):
         table.add_rows(rows)
 
     def on_mount(self) -> None:
+        log.debug("Mounting app")
         self._update_tasks()
 
     def watch_tasks(self) -> None:
@@ -190,3 +242,15 @@ class TaskTuiApp(App):
         current_task = self.tasks[table.cursor_row]
         confirm_done_scree = ConfirmDialog(f'Are you sure you want set task "{current_task.description}" ({current_task.id}) to done?')
         self.push_screen(confirm_done_scree, set_done)
+
+    def action_add_task(self) -> None:
+        def add_task(description: str) -> None:
+            new_task_id = task_cli.add_task(description)
+            self._update_tasks()
+            task = self.tasks._get_task_by_id(new_task_id)
+            task_index = self.tasks._get_index_by_uuid(task.uuid)
+            table = self.query_one(TaskReport)
+            table.move_cursor(row=task_index)
+
+        add_task_screen = TextInput("Enter task description")
+        self.push_screen(add_task_screen, add_task)

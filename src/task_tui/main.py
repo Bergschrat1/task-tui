@@ -3,7 +3,7 @@ import logging
 import typer
 
 from task_tui.app import TaskTuiApp
-from task_tui.task import TaskCli
+from task_tui.task_cli import TaskCli
 
 typer_app = typer.Typer()
 log = logging.getLogger(__name__)
