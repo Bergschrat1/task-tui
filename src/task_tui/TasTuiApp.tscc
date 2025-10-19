@@ -2,10 +2,6 @@ TaskReporta {
     background: blue;
 }
 
-Footer {
-    background: red;
-}
-
 ConfirmDialog {
     align: center middle;
     width: 30%;
