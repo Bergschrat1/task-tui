@@ -7,7 +7,6 @@ from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Grid
-from textual.reactive import reactive, var
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Footer, Input, Label
 
@@ -165,13 +164,14 @@ class TaskReport(DataTable):
 
 class TaskTuiApp(App):
     CSS_PATH = "./TasTuiApp.tscc"
-    headings: reactive[list[tuple[str, str]]] = reactive(list())
-    tasks: reactive[TaskStore] = reactive(TaskStore([]))
+    headings: list[tuple[str, str]] = list()
+    tasks: TaskStore = TaskStore([])
     report: str
     BINDINGS = [
         Binding("q,escape", "quit", "Quit"),
         Binding("d", "set_done", "Set done"),
         Binding("a", "add_task", "Add task"),
+        Binding("r", "refresh_tasks", "Refresh"),
     ]
 
     def __init__(self, report: str) -> None:
@@ -208,11 +208,12 @@ class TaskTuiApp(App):
         log.debug(f"Got {len(tasks)} new tasks.")
         self.tasks = TaskStore(tasks)
         self.headings = task_cli.get_report_columns(self.report)
+        self._update_table()
 
     def _update_table(self) -> None:
         log.debug("Updating table")
         table = self.query_one(TaskReport)
-        table.clear()
+        table.clear(columns=True)
         columns = [h[0].split(".")[0] for h in self.headings]
         labels = [h[1] for h in self.headings]
         data = [getattr(self.tasks, col) for col in columns]
@@ -225,13 +226,13 @@ class TaskTuiApp(App):
         log.debug("Mounting app")
         self._update_tasks()
 
-    def watch_tasks(self) -> None:
-        log.debug("Tasks have changed! Updating table")
-        self._update_table()
-
     def action_quit(self) -> None:
         confirm_quit_sqreen = ConfirmDialog("Are you sure you want to quit?")
         self.push_screen(confirm_quit_sqreen, self.exit)
+
+    def action_refresh_tasks(self) -> None:
+        log.debug("Refreshing tasks")
+        self._update_tasks()
 
     def action_set_done(self) -> None:
         def set_done(quit: bool | None) -> None:
