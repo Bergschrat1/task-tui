@@ -1,6 +1,5 @@
 import logging
 
-from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Grid
@@ -85,6 +84,13 @@ class TextInput(ModalScreen):
 
 
 class TaskReport(DataTable):
+    BINDINGS = [
+        Binding("j", "cursor_down", "Cursor Down", show=False),
+        Binding("k", "cursor_up", "Cursor Up", show=False),
+        Binding("ctrl+d", "page_down", "Page Down", show=False),
+        Binding("ctrl+u", "page_up", "Page Up", show=False),
+    ]
+
     def on_mount(self) -> None:
         log.debug("TaskReport mounted")
         self.cursor_type = "row"
