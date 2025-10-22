@@ -58,7 +58,10 @@ class TaskCli:
 
     def add_task(self, description: str) -> int:
         log.info("Adding task with description %s", description)
-        confirmation = self._run_task("add", description).stdout.strip()
+        # split so that description isn't passed as one complete string (which would not allow to add prio/proj/etc.)
+        description = description.split(" ")
+        completed_process = self._run_task("add", *description)
+        confirmation = completed_process.stdout.strip()
         # TASKDATA override: ./test_data/
         # Created task 4.
         task_id_pattern = r"Created task (\d+)\."
