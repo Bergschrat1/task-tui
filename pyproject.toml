@@ -1,5 +1,5 @@
 [project]
-name = "impure-package"
+name = "task-tui"
 version = "0.1.0"
 description = "Add your description here"
 authors = [ ]
