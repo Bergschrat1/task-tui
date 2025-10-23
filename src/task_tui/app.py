@@ -10,6 +10,7 @@ from textual.message import Message
 from textual.widgets import Footer
 
 from task_tui.data_models import Task
+from task_tui.exceptions import TaskStoreError
 from task_tui.task_cli import TaskCli
 from task_tui.widgets import ConfirmDialog, TaskReport, TextInput
 
@@ -49,19 +50,19 @@ class TaskStore:
     def _get_index_by_uuid(self, uuid: UUID) -> int | None:
         ret = [i for i, t in enumerate(self.tasks) if t.uuid == uuid]
         if len(ret) > 1:
-            raise ValueError(f"Multiple tasks with the same UUID: {uuid}")
+            raise TaskStoreError(f"Multiple tasks with the same UUID: {uuid}")
         return ret[0] if ret else None
 
     def _get_task_by_id(self, id: int) -> Task | None:
         ret = [t for t in self.tasks if t.id == id]
         if len(ret) > 1:
-            raise ValueError(f"Multiple tasks with the same ID: {id}")
+            raise TaskStoreError(f"Multiple tasks with the same ID: {id}")
         return ret[0] if ret else None
 
     def _get_task_by_uuid(self, uuid: UUID) -> Task | None:
         ret = [t for t in self.tasks if t.uuid == uuid]
         if len(ret) > 1:
-            raise ValueError(f"Multiple tasks with the same UUID: {uuid}")
+            raise TaskStoreError(f"Multiple tasks with the same UUID: {uuid}")
         return ret[0] if ret else None
 
     def _get_task_column(self, col_name: str) -> list[Any]:
@@ -157,9 +158,13 @@ class TaskTuiApp(App):
         self._update_table()
 
         if event.select_task_id is not None:
-            # TODO handle missing tasks
-            task = self.tasks._get_task_by_id(event.select_task_id)
-            select_task_index = self.tasks._get_index_by_uuid(task.uuid)
+            try:
+                task = self.tasks._get_task_by_id(event.select_task_id)
+                select_task_index = self.tasks._get_index_by_uuid(task.uuid)
+            except TaskStoreError as e:
+                log.error("Failed to get task by id: %s", e)
+                self.notify("Failed to select task with id: %s", event.select_task_id)
+                select_task_index = 0
         else:
             select_task_index = previous_row
         # move_cursor already handles upper out-of-bounds by selecting the highest available row so this is not handled manually
@@ -183,9 +188,8 @@ class TaskTuiApp(App):
 
     def action_refresh_tasks(self) -> None:
         log.debug("Refreshing tasks")
-        self.refresh()
-        table = self.query_one(TaskReport)
-        table.refresh()
+        self.post_message(TasksChanged())
+        self.notify("Tasks refreshed")
 
     def action_set_done(self) -> None:
         def set_done(quit: bool | None) -> None:
