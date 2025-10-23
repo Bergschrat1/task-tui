@@ -176,15 +176,21 @@ class TaskTuiApp(App):
 
     def action_add_task(self) -> None:
         def add_task(description: str) -> None:
-            new_task_id = task_cli.add_task(description)
+            try:
+                new_task_id = task_cli.add_task(description)
+            except ValueError as e:
+                self.notify(f"Failed to create task:\n{str(e)}", severity="error", markup=True)
+                return
             self.post_message(TasksChanged(select_task_id=new_task_id))
 
         add_task_screen = TextInput("Enter task description")
         self.push_screen(add_task_screen, add_task)
 
     def action_quit(self) -> None:
-        confirm_quit_sqreen = ConfirmDialog("Are you sure you want to quit?")
-        self.push_screen(confirm_quit_sqreen, self.exit)
+        # confirm_quit_sqreen = ConfirmDialog("Are you sure you want to quit?")
+        # self.push_screen(confirm_quit_sqreen, self.exit)
+        log.debug("Quitting app")
+        self.exit()
 
     def action_refresh_tasks(self) -> None:
         log.debug("Refreshing tasks")

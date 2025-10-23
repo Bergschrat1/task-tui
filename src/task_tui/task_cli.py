@@ -63,12 +63,18 @@ class TaskCli:
         # split so that description isn't passed as one complete string (which would not allow to add prio/proj/etc.)
         description: list[str] = description.split(" ")
         completed_process = self._run_task("add", *description)
+        if completed_process.returncode != 0:
+            log.error("Failed to create task: %s", completed_process)
+            raise ValueError(completed_process.stderr.strip())
+
         confirmation = completed_process.stdout.strip()
         # TASKDATA override: ./test_data/
         # Created task 4.
         task_id_pattern = r"Created task (\d+)\."
         match = re.search(task_id_pattern, confirmation)
         if match is None:
-            raise ValueError("Could not extract task ID of newly created task.")
+            log.error("Failed to get task id from new task")
+            raise ValueError("Failed to get task id from new task")
+
         task_id = int(match.group(1))
         return task_id
