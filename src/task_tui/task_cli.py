@@ -24,11 +24,13 @@ class TaskCli:
         return subprocess.run(command, text=True, capture_output=True)
 
     def export_tasks(self, report: str | None = None) -> list[Task]:
-        command = ["rc.json.array=0", "export"]
+        command = ["rc.json.array=0", "rc.defaultheight=0", "export"]
         if report:
             command.append(report)
-        export: str = self._run_task(*command).stdout
+        completed_process = self._run_task(*command)
+        export = completed_process.stdout
         tasks = [Task.model_validate_json(t) for t in export.strip().split("\n")]
+        log.debug(f"Got {len(tasks)} tasks from task_cli.")
         return tasks
 
     def get_report_columns(self, report: str) -> list[tuple[str, str]]:

@@ -89,6 +89,7 @@ class TaskReport(DataTable):
         Binding("k", "cursor_up", "Cursor Up", show=False),
         Binding("ctrl+d", "page_down", "Page Down", show=False),
         Binding("ctrl+u", "page_up", "Page Up", show=False),
+        Binding("G", "page_up", "Page Up", show=False),
     ]
 
     def on_mount(self) -> None:

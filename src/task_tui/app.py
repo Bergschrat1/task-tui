@@ -3,8 +3,10 @@ from itertools import compress
 from typing import Any
 from uuid import UUID
 
+from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
+from textual.message import Message
 from textual.widgets import Footer
 
 from task_tui.data_models import Task
@@ -40,6 +42,9 @@ class TaskStore:
 
     def __init__(self, tasks: list[Task]) -> None:
         self.tasks = tasks
+
+    def __len__(self) -> int:
+        return len(self.tasks)
 
     def _get_index_by_uuid(self, uuid: UUID) -> int | None:
         ret = [i for i, t in enumerate(self.tasks) if t.uuid == uuid]
@@ -80,6 +85,12 @@ class TaskStore:
         for task in self.tasks:
             ret.append(",".join(task.tags or []))
         return ret
+
+
+class TasksChanged(Message):
+    def __init__(self, select_task_id: int | None = None) -> None:
+        super().__init__()
+        self.select_task_id = select_task_id
 
 
 class TaskTuiApp(App):
@@ -130,30 +141,38 @@ class TaskTuiApp(App):
         table.add_columns(*labels)
         table.add_rows(rows)
 
-    def _update_tasks(self) -> None:
+    @on(TasksChanged)
+    async def _update_tasks(self, event: TasksChanged) -> None:
         """Update the tasks using the task cli.
 
         NOTE: Updating the task will trigger a table update.
         """
+        table = self.query_one(TaskReport)
+        previous_row: int = table.cursor_row
         log.debug("Updating tasks")
+        log.debug("Previous row: %d, Previous number of tasks: %d", previous_row, len(self.tasks))
         tasks = task_cli.export_tasks(self.report)
-        log.debug(f"Got {len(tasks)} new tasks.")
         self.tasks = TaskStore(tasks)
         self.headings = task_cli.get_report_columns(self.report)
         self._update_table()
 
+        if event.select_task_id is not None:
+            # TODO handle missing tasks
+            task = self.tasks._get_task_by_id(event.select_task_id)
+            select_task_index = self.tasks._get_index_by_uuid(task.uuid)
+        else:
+            select_task_index = previous_row
+        # move_cursor already handles upper out-of-bounds by selecting the highest available row so this is not handled manually
+        table.move_cursor(row=select_task_index, animate=True, scroll=True)
+
     def on_mount(self) -> None:
         log.debug("Mounting app")
-        self._update_tasks()
+        self.post_message(TasksChanged())
 
     def action_add_task(self) -> None:
         def add_task(description: str) -> None:
             new_task_id = task_cli.add_task(description)
-            self._update_tasks()
-            task = self.tasks._get_task_by_id(new_task_id)
-            task_index = self.tasks._get_index_by_uuid(task.uuid)
-            table = self.query_one(TaskReport)
-            table.move_cursor(row=task_index)
+            self.post_message(TasksChanged(select_task_id=new_task_id))
 
         add_task_screen = TextInput("Enter task description")
         self.push_screen(add_task_screen, add_task)
@@ -164,12 +183,14 @@ class TaskTuiApp(App):
 
     def action_refresh_tasks(self) -> None:
         log.debug("Refreshing tasks")
-        self._update_tasks()
+        self.refresh()
+        table = self.query_one(TaskReport)
+        table.refresh()
 
     def action_set_done(self) -> None:
         def set_done(quit: bool | None) -> None:
             task_cli.set_task_done(current_task)
-            self._update_tasks()
+            self.post_message(TasksChanged())
 
         table = self.query_one(TaskReport)
         current_task = self.tasks[table.cursor_row]

@@ -5,7 +5,7 @@ import typer
 from task_tui.app import TaskTuiApp
 from task_tui.task_cli import TaskCli
 
-typer_app = typer.Typer()
+typer_app = typer.Typer(pretty_exceptions_enable=False)
 log = logging.getLogger(__name__)
 
 DEFAULT_REPORT = "next"
