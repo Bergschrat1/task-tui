@@ -18,9 +18,10 @@ class Config:
     color: dict[str, Style]
 
     def __init__(self, config_data: str) -> None:
-        self.color = self._parse_colors(config_data)
+        self.color = self._parse_color_config(config_data)
 
-    def _parse_colors(self, config_data: str) -> dict[str, Style]:
+    @classmethod
+    def _parse_color_config(cls, config_data: str) -> dict[str, Style]:
         color_config: dict[str, Style] = {}
         for config_line in config_data.split("\n"):
             config_line = config_line.strip()
@@ -29,13 +30,14 @@ class Config:
             config_line_split = config_line.split()
             attribute = config_line_split[0].split(".", maxsplit=1)[1]
             config_line_colors = " ".join(config_line_split[1:])
-            style = self._parse_style(config_line_colors)
+            style = cls._parse_style(config_line_colors)
             color_config[attribute] = style
         return color_config
 
-    def _parse_style(self, style_config: str) -> Style:
-        fg: Color | None = None
-        bg: Color | None = None
+    @classmethod
+    def _parse_style(cls, style_config: str) -> Style:
+        fg_color: Color | None = None
+        bg_color: Color | None = None
         bold: bool | None = None
         underline: bool | None = None
         inverse: bool = False
@@ -50,12 +52,19 @@ class Config:
             style_config = style_config.replace("inverse", "").strip()
         fb_bg_split = style_config.split("on ")
         len_color_conf = len(fb_bg_split)
-        if len_color_conf == 1:
-            fg_color = self._parse_color(fb_bg_split[0])
+        if fb_bg_split[0]:
+            fg_color = cls._parse_color(fb_bg_split[0])
+        if len_color_conf == 2:
+            bg_color = cls._parse_color(fb_bg_split[1])
+        if inverse:
+            tmp = fg_color
+            fg_color = bg_color
+            bg_color = tmp
 
-        ret = Style(color=fg)
+        return Style(color=fg_color, bgcolor=bg_color, bold=bold, underline=underline)
 
-    def _parse_color(self, color_str: str) -> Color:
+    @staticmethod
+    def _parse_color(color_str: str) -> Color:
         bright = True if "bright" in color_str else False
         color_str = color_str.replace("bright", "").strip()
         if color_str in COLOR_INDEXES:
@@ -71,7 +80,8 @@ class Config:
             blue = int(color_str[5])
             color_code = 16 + red * 36 + green * 6 + blue
         elif color_str.startswith("gray"):
-            pass
+            grey_code = int(color_str[4:])
+            color_code = 232 + grey_code
         else:
             raise ValueError(f"Unknown color {color_str}")
 
