@@ -10,7 +10,7 @@ from textual.message import Message
 from textual.widgets import Footer
 
 from task_tui.config import Config
-from task_tui.data_models import Tag, Task
+from task_tui.data_models import Task, VirtualTag
 from task_tui.exceptions import TaskStoreError
 from task_tui.task_cli import TaskCli
 from task_tui.utils import get_style_for_task
@@ -74,9 +74,9 @@ class TaskStore:
     def _update_tags(self) -> None:
         for task in self.tasks:
             if task.start:
-                task.tags.append(Tag.ACTIVE)
+                task.virtual_tags.append(VirtualTag.ACTIVE)
             if task.priority:
-                task.tags.append(Tag.PRIORITY)
+                task.virtual_tags.append(VirtualTag.PRIORITY)
 
     @property
     def depends(self) -> list[str]:

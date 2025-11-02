@@ -8,7 +8,7 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict
 IsoDateTime = Annotated[datetime, BeforeValidator(datetime.fromisoformat)]
 
 
-class Tag(StrEnum):
+class VirtualTag(StrEnum):
     ACTIVE = auto()
     SCHEDULED = auto()
     UNTIL = auto()
@@ -47,7 +47,8 @@ class Task(BaseModel):
     urgency: float
     annotations: list[Annotation] | None = None
     priority: str | None = None
-    tags: list[Tag] = list()
+    tags: list[str] = list()
     depends: list[UUID] = list()
+    virtual_tags: list[VirtualTag] = list()
 
     model_config = ConfigDict(extra="allow")
