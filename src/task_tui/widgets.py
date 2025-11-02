@@ -1,5 +1,6 @@
 import logging
 
+from rich.style import Style
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Grid
@@ -92,8 +93,24 @@ class TaskReport(DataTable):
         Binding("G", "page_up", "Page Up", show=False),
     ]
 
+    def __init__(self) -> None:
+        super().__init__()
+        self._row_style_overrides: dict[int, Style] = {}
+
     def on_mount(self) -> None:
         log.debug("TaskReport mounted")
         self.cursor_type = "row"
         self.zebra_stripes = True
         self.app._update_table()
+
+    def set_row_style(self, index: int, style: Style) -> None:
+        self._row_style_overrides[index] = style
+        self.refresh_row(index)
+
+    def clear_row_styles(self) -> None:
+        self._row_style_overrides.clear()
+
+    def _get_row_style(self, row_index: int, base_style: Style) -> Style:
+        if row_index in self._row_style_overrides:
+            return self._row_style_overrides[row_index]
+        return super()._get_row_style(row_index, base_style)

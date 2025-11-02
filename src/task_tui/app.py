@@ -13,6 +13,7 @@ from task_tui.config import Config
 from task_tui.data_models import Tag, Task
 from task_tui.exceptions import TaskStoreError
 from task_tui.task_cli import TaskCli
+from task_tui.utils import get_style_for_task
 from task_tui.widgets import ConfirmDialog, TaskReport, TextInput
 
 log = logging.getLogger(__name__)
@@ -145,13 +146,17 @@ class TaskTuiApp(App):
         log.debug("Updating table")
         table = self.query_one(TaskReport)
         table.clear(columns=True)
+        table.clear_row_styles()
         columns = [h[0].split(".")[0] for h in self.headings]
         labels = [h[1] for h in self.headings]
         data = [getattr(self.tasks, col) for col in columns]
         columns, labels, data = self._clean_empty_columns(columns, labels, data)
         rows = list(map(list, zip(*data)))
         table.add_columns(*labels)
-        table.add_rows(rows)
+        styles = [get_style_for_task(task, self.config) for task in self.tasks]
+        for index, (row, style) in enumerate(zip(rows, styles)):
+            table.add_row(*row)
+            table.set_row_style(index, style)
 
     @on(TasksChanged)
     async def _update_tasks(self, event: TasksChanged) -> None:

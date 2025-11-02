@@ -47,7 +47,7 @@ class Task(BaseModel):
     urgency: float
     annotations: list[Annotation] | None = None
     priority: str | None = None
-    tags: list[Tag] | None = None
+    tags: list[Tag] = list()
     depends: list[UUID] = list()
 
     model_config = ConfigDict(extra="allow")
