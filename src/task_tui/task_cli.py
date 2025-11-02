@@ -2,6 +2,7 @@ import logging
 import re
 import subprocess
 
+from task_tui.config import Config
 from task_tui.data_models import Task
 
 log = logging.getLogger(__name__)
@@ -32,6 +33,11 @@ class TaskCli:
         tasks = [Task.model_validate_json(t) for t in export.strip().split("\n")]
         log.debug(f"Got {len(tasks)} tasks from task_cli.")
         return tasks
+
+    def get_config(self) -> Config:
+        command = ["show"]
+        config_output: str = self._run_task(*command).stdout.strip()
+        return Config(config_output)
 
     def get_report_columns(self, report: str) -> list[tuple[str, str]]:
         command = ["show", "rc.defaultwidth=0", f"report.{report}.columns"]

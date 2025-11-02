@@ -8,6 +8,14 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict
 IsoDateTime = Annotated[datetime, BeforeValidator(datetime.fromisoformat)]
 
 
+class Tag(StrEnum):
+    ACTIVE = auto()
+    SCHEDULED = auto()
+    UNTIL = auto()
+    PROJECT = auto()
+    PRIORITY = auto()
+
+
 class Status(StrEnum):
     PENDING = auto()
     DELETED = auto()
@@ -39,7 +47,7 @@ class Task(BaseModel):
     urgency: float
     annotations: list[Annotation] | None = None
     priority: str | None = None
-    tags: list[str] | None = None
+    tags: list[Tag] | None = None
     depends: list[UUID] = list()
 
     model_config = ConfigDict(extra="allow")

@@ -9,7 +9,8 @@ from textual.binding import Binding
 from textual.message import Message
 from textual.widgets import Footer
 
-from task_tui.data_models import Task
+from task_tui.config import Config
+from task_tui.data_models import Tag, Task
 from task_tui.exceptions import TaskStoreError
 from task_tui.task_cli import TaskCli
 from task_tui.widgets import ConfirmDialog, TaskReport, TextInput
@@ -43,6 +44,7 @@ class TaskStore:
 
     def __init__(self, tasks: list[Task]) -> None:
         self.tasks = tasks
+        self._update_tags()
 
     def __len__(self) -> int:
         return len(self.tasks)
@@ -67,6 +69,13 @@ class TaskStore:
 
     def _get_task_column(self, col_name: str) -> list[Any]:
         return [getattr(task, col_name) for task in self.tasks]
+
+    def _update_tags(self) -> None:
+        for task in self.tasks:
+            if task.start:
+                task.tags.append(Tag.ACTIVE)
+            if task.priority:
+                task.tags.append(Tag.PRIORITY)
 
     @property
     def depends(self) -> list[str]:
@@ -99,6 +108,7 @@ class TaskTuiApp(App):
     headings: list[tuple[str, str]] = list()
     tasks: TaskStore = TaskStore([])
     report: str
+    config: Config
     BINDINGS = [
         Binding("q,escape", "quit", "Quit"),
         Binding("d", "set_done", "Set done"),
@@ -108,6 +118,7 @@ class TaskTuiApp(App):
 
     def __init__(self, report: str) -> None:
         self.report = report
+        self.config = task_cli.get_config()
         super().__init__()
 
     def compose(self) -> ComposeResult:

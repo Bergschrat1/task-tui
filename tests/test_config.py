@@ -76,6 +76,23 @@ class TestParseColor:
         assert parsed_color == Color.from_ansi(expected_index)
 
     @pytest.mark.parametrize(
+        "color,expected_index",
+        [
+            ("bright black", 8),
+            ("bright red", 9),
+            ("bright green", 10),
+            ("bright yellow", 11),
+            ("bright blue", 12),
+            ("bright magenta", 13),
+            ("bright cyan", 14),
+            ("bright white", 15),
+        ],
+    )
+    def test_bright_words_are_parsed(self, color: str, expected_index: int) -> None:
+        parsed_color = Config._parse_color(color)
+        assert parsed_color == Color.from_ansi(expected_index)
+
+    @pytest.mark.parametrize(
         "color_str,expected_index",
         [
             ("color17", 17),
