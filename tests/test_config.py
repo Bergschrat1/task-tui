@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 from rich.color import Color
 from rich.style import Style
@@ -20,7 +22,31 @@ class TestParseColorConfig:
         assert "color" not in styles
 
     def test_parse_style_correctly_called(self) -> None:
-        pass
+        with patch("task_tui.config.Config._parse_style") as mock:
+            Config._parse_color_config("""
+                foo
+                color.active              blue on    red
+                color.active              on red
+                color.alternate       red
+                color.blocked             green on gray12
+                foo.color.bar
+                color.due.today              blue
+                """)
+        expected = [
+            ("blue on red"),
+            ("on red"),
+            ("red"),
+            ("green on gray12"),
+            ("blue"),
+        ]
+        mock.call_args_list = expected
+
+    def test_duplicate_values_are_overwritten(self) -> None:
+        styles = Config._parse_color_config("""
+            color.active              blue
+            color.active              red
+            """)
+        assert styles["active"] == Style(color=Color.from_ansi(1))  # red
 
 
 class TestParseStyle:
@@ -52,9 +78,28 @@ class TestParseStyle:
         style = Config._parse_style("inverse red on blue")
         assert style == Style(color=Color.from_ansi(4), bgcolor=Color.from_ansi(1))
 
+    def test_inverse_no_bg(self) -> None:
+        style = Config._parse_style("inverse red")
+        assert style == Style(color=None, bgcolor=Color.from_ansi(1))
+
     def test_all_modifiers(self) -> None:
         style = Config._parse_style("bold underline inverse red")
         assert style == Style(color=None, bgcolor=Color.from_ansi(1), underline=True, bold=True)
+
+    @pytest.mark.parametrize(
+        "style_str,expected_calls",
+        [
+            ("red on blue", [("red",), ("blue",)]),
+            ("bold underline inverse red", [("red",)]),
+            ("on red", [("red",)]),
+            ("on bright red", [("bright red",)]),
+        ],
+    )
+    def test_parse_color_is_called_correctly(self, style_str: str, expected_calls: list[tuple[str, ...]]) -> None:
+        with patch("task_tui.config.Config._parse_color", wraps=Config._parse_color) as mock:
+            Config._parse_style(style_str)
+        print(expected_calls)
+        assert [c.args for c in mock.call_args_list] == expected_calls
 
 
 class TestParseColor:

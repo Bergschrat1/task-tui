@@ -53,9 +53,9 @@ class Config:
         fb_bg_split = style_config.split("on ")
         len_color_conf = len(fb_bg_split)
         if fb_bg_split[0]:
-            fg_color = cls._parse_color(fb_bg_split[0])
+            fg_color = cls._parse_color(fb_bg_split[0].strip())
         if len_color_conf == 2:
-            bg_color = cls._parse_color(fb_bg_split[1])
+            bg_color = cls._parse_color(fb_bg_split[1].strip())
         if inverse:
             tmp = fg_color
             fg_color = bg_color
