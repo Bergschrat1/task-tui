@@ -147,7 +147,6 @@ class TaskTuiApp(App):
         table = self.query_one(TaskReport)
         table.clear(columns=True)
         table.clear_row_styles()
-        table.clear_selection_marker()
         columns = [h[0].split(".")[0] for h in self.headings]
         labels = [h[1] for h in self.headings]
         data = [getattr(self.tasks, col) for col in columns]
@@ -156,9 +155,9 @@ class TaskTuiApp(App):
         table.add_columns(*labels)
         styles = [get_style_for_task(task, self.config) for task in self.tasks]
         for index, (row, style) in enumerate(zip(rows, styles)):
-            table.add_row(*row, label=" ")
+            label = "▶" if table.cursor_row == index else " "
+            table.add_row(*row, label=label)
             table.set_row_style(index, style)
-        table.sync_cursor_marker()
 
     @on(TasksChanged)
     async def _update_tasks(self, event: TasksChanged) -> None:
