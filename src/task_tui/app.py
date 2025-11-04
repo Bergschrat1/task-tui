@@ -1,4 +1,6 @@
 import logging
+from datetime import datetime
+from enum import Enum, auto
 from itertools import compress
 from typing import Any
 from uuid import UUID
@@ -10,7 +12,7 @@ from textual.message import Message
 from textual.widgets import Footer
 
 from task_tui.config import Config
-from task_tui.data_models import Task, VirtualTag
+from task_tui.data_models import Status, Task, VirtualTag
 from task_tui.exceptions import TaskStoreError
 from task_tui.task_cli import TaskCli
 from task_tui.utils import get_style_for_task
@@ -20,6 +22,12 @@ log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 
 task_cli = TaskCli()
+
+
+class DueState(Enum):
+    TODAY = auto()
+    OVERDUE = auto()
+    DUE = auto()
 
 
 class TaskStore:
@@ -43,9 +51,9 @@ class TaskStore:
             raise IndexError("Index needs to be an integer")
         return self.tasks[idx]
 
-    def __init__(self, tasks: list[Task]) -> None:
+    def __init__(self, tasks: list[Task], config: Config) -> None:
         self.tasks = tasks
-        self._update_tags()
+        self._update_virtual_tags(config)
 
     def __len__(self) -> int:
         return len(self.tasks)
@@ -71,12 +79,47 @@ class TaskStore:
     def _get_task_column(self, col_name: str) -> list[Any]:
         return [getattr(task, col_name) for task in self.tasks]
 
-    def _update_tags(self) -> None:
+    def _check_due_state(self, due_date: datetime, due_offset: int) -> DueState:
+        datetime.now()
+
+    def _update_virtual_tags(self, config: Config) -> None:
         for task in self.tasks:
-            if task.start:
+            if task.start is not None:
                 task.virtual_tags.append(VirtualTag.ACTIVE)
-            if task.priority:
+            if task.priority is not None:
                 task.virtual_tags.append(VirtualTag.PRIORITY)
+            if task.tags:
+                task.virtual_tags.append(VirtualTag.TAGGED)
+            else:
+                task.virtual_tags.append(VirtualTag.NO_TAG)
+            if task.scheduled is not None:
+                task.virtual_tags.append(VirtualTag.SCHEDULED)
+            if task.until is not None:
+                task.virtual_tags.append(VirtualTag.UNTIL)
+            if task.project is None:
+                task.virtual_tags.append(VirtualTag.NO_PROJECT)
+            if task.status == Status.WAITING:
+                task.virtual_tags.append(VirtualTag.WAITING)
+            if task.status == Status.RECURRING:
+                task.virtual_tags.append(VirtualTag.RECURRING)
+            if task.status == Status.COMPLETED:
+                task.virtual_tags.append(VirtualTag.COMPLETED)
+            if task.status == Status.DELETED:
+                task.virtual_tags.append(VirtualTag.DELETED)
+
+            if task.due is not None:
+                now = datetime.now()
+                if task.due < now:
+                    task.virtual_tags.append(VirtualTag.OVERDUE)
+
+            # TODO add blocking/blocked
+            # TODO add due/overdue/duetoday
+
+            # color.due.today Task is due today
+            # color.blocking Task is blocking another in a dependency.
+            # color.blocked Task is blocked by a dependency.
+            # color.overdue Task is overdue (due some time prior to now).
+            # color.due Task is coming due.
 
     @property
     def depends(self) -> list[str]:
@@ -170,7 +213,7 @@ class TaskTuiApp(App):
         log.debug("Updating tasks")
         log.debug("Previous row: %d, Previous number of tasks: %d", previous_row, len(self.tasks))
         tasks = task_cli.export_tasks(self.report)
-        self.tasks = TaskStore(tasks)
+        self.tasks = TaskStore(tasks, self.config)
         self.headings = task_cli.get_report_columns(self.report)
         self._update_table()
 

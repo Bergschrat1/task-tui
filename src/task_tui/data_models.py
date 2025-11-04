@@ -10,10 +10,19 @@ IsoDateTime = Annotated[datetime, BeforeValidator(datetime.fromisoformat)]
 
 class VirtualTag(StrEnum):
     ACTIVE = auto()
-    SCHEDULED = auto()
-    UNTIL = auto()
-    PROJECT = auto()
+    COMPLETED = auto()
+    DUE = auto()
+    DUETODAY = auto()
+    NO_PROJECT = auto()
+    NO_TAG = auto()
+    OVERDUE = auto()
     PRIORITY = auto()
+    PROJECT = auto()
+    RECURRING = auto()
+    SCHEDULED = auto()
+    TAGGED = auto()
+    UNTIL = auto()
+    WAITING = auto()
 
 
 class Status(StrEnum):
