@@ -9,7 +9,8 @@ from task_tui.config import Config
 
 class TestParseColorConfig:
     def test_color_attributes_are_found(self) -> None:
-        styles = Config._parse_color_config("""
+        styles = Config._parse_color_config(
+            """
             foo
             color.active              blue
             color.alternate       blue
@@ -17,13 +18,15 @@ class TestParseColorConfig:
             foo.color.bar
             color.due.today              blue
             no.color     foo
-            """)
+            """.splitlines()
+        )
         assert all(atr in styles for atr in ["active", "alternate", "blocked", "due.today"])
         assert "color" not in styles
 
     def test_parse_style_correctly_called(self) -> None:
         with patch("task_tui.config.Config._parse_style") as mock:
-            Config._parse_color_config("""
+            Config._parse_color_config(
+                """
                 foo
                 color.active              blue on    red
                 color.active              on red
@@ -31,7 +34,8 @@ class TestParseColorConfig:
                 color.blocked             green on gray12
                 foo.color.bar
                 color.due.today              blue
-                """)
+                """.splitlines()
+            )
         expected = [
             ("blue on red"),
             ("on red"),
@@ -42,10 +46,12 @@ class TestParseColorConfig:
         mock.call_args_list = expected
 
     def test_duplicate_values_are_overwritten(self) -> None:
-        styles = Config._parse_color_config("""
+        styles = Config._parse_color_config(
+            """
             color.active              blue
             color.active              red
-            """)
+            """.splitlines()
+        )
         assert styles["active"] == Style(color=Color.from_ansi(1))  # red
 
 

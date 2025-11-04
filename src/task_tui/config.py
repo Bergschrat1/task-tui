@@ -1,4 +1,6 @@
 # ruff: noqa: F841
+from typing import Callable, TypeVar
+
 from rich.color import Color
 from rich.style import Style
 
@@ -13,17 +15,28 @@ COLOR_INDEXES = {
     "white": 7,
 }
 
+T = TypeVar("T")
+
 
 class Config:
     color: dict[str, Style]
 
     def __init__(self, config_data: str) -> None:
-        self.color = self._parse_color_config(config_data)
+        config_lines = config_data.splitlines()
+        self.color = self._parse_color_config(config_lines)
+        self.due = self._get_config(config_lines, "due", int, 7)
+
+    def _get_config(self, config_lines: list[str], config_name: str, default: T, parser: Callable = None) -> T:
+        for line in config_lines:
+            config_key, config_value = line.split(maxsplit=1)
+            if config_key == config_name:
+                return parser(config_value)
+        return default
 
     @classmethod
-    def _parse_color_config(cls, config_data: str) -> dict[str, Style]:
+    def _parse_color_config(cls, config_lines: list[str]) -> dict[str, Style]:
         color_config: dict[str, Style] = {}
-        for config_line in config_data.split("\n"):
+        for config_line in config_lines:
             config_line = config_line.strip()
             if not config_line.startswith("color."):
                 continue
