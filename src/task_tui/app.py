@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime
 from enum import Enum, auto
 from itertools import compress
 from typing import Any
@@ -15,11 +14,10 @@ from task_tui.config import Config
 from task_tui.data_models import Status, Task, VirtualTag
 from task_tui.exceptions import TaskStoreError
 from task_tui.task_cli import TaskCli
-from task_tui.utils import get_style_for_task
+from task_tui.utils import get_current_date, get_style_for_task
 from task_tui.widgets import ConfirmDialog, TaskReport, TextInput
 
 log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
 
 task_cli = TaskCli()
 
@@ -79,47 +77,50 @@ class TaskStore:
     def _get_task_column(self, col_name: str) -> list[Any]:
         return [getattr(task, col_name) for task in self.tasks]
 
-    def _check_due_state(self, due_date: datetime, due_offset: int) -> DueState:
-        datetime.now()
-
     def _update_virtual_tags(self, config: Config) -> None:
+        today = get_current_date()
         for task in self.tasks:
             if task.start is not None:
-                task.virtual_tags.append(VirtualTag.ACTIVE)
+                task.virtual_tags.add(VirtualTag.ACTIVE)
             if task.priority is not None:
-                task.virtual_tags.append(VirtualTag.PRIORITY)
+                task.virtual_tags.add(VirtualTag.PRIORITY)
             if task.tags:
-                task.virtual_tags.append(VirtualTag.TAGGED)
+                task.virtual_tags.add(VirtualTag.TAGGED)
             else:
-                task.virtual_tags.append(VirtualTag.NO_TAG)
+                task.virtual_tags.add(VirtualTag.NO_TAG)
             if task.scheduled is not None:
-                task.virtual_tags.append(VirtualTag.SCHEDULED)
+                task.virtual_tags.add(VirtualTag.SCHEDULED)
             if task.until is not None:
-                task.virtual_tags.append(VirtualTag.UNTIL)
+                task.virtual_tags.add(VirtualTag.UNTIL)
             if task.project is None:
-                task.virtual_tags.append(VirtualTag.NO_PROJECT)
+                task.virtual_tags.add(VirtualTag.NO_PROJECT)
             if task.status == Status.WAITING:
-                task.virtual_tags.append(VirtualTag.WAITING)
+                task.virtual_tags.add(VirtualTag.WAITING)
             if task.status == Status.RECURRING:
-                task.virtual_tags.append(VirtualTag.RECURRING)
+                task.virtual_tags.add(VirtualTag.RECURRING)
             if task.status == Status.COMPLETED:
-                task.virtual_tags.append(VirtualTag.COMPLETED)
+                task.virtual_tags.add(VirtualTag.COMPLETED)
             if task.status == Status.DELETED:
-                task.virtual_tags.append(VirtualTag.DELETED)
+                task.virtual_tags.add(VirtualTag.DELETED)
 
-            if task.due is not None:
-                now = datetime.now()
-                if task.due < now:
-                    task.virtual_tags.append(VirtualTag.OVERDUE)
+            for dependency_uuid in task.depends:
+                dependency = self._get_task_by_uuid(dependency_uuid)
+                if dependency.status not in (VirtualTag.COMPLETED, VirtualTag.DELETED) and task.status not in (
+                    VirtualTag.COMPLETED,
+                    VirtualTag.DELETED,
+                ):
+                    dependency.virtual_tags.add(VirtualTag.BLOCKING)
+                    task.virtual_tags.add(VirtualTag.BLOCKED)
 
-            # TODO add blocking/blocked
-            # TODO add due/overdue/duetoday
-
-            # color.due.today Task is due today
-            # color.blocking Task is blocking another in a dependency.
-            # color.blocked Task is blocked by a dependency.
-            # color.overdue Task is overdue (due some time prior to now).
-            # color.due Task is coming due.
+            if task.due:
+                due_delta_days = (task.due.date() - today).days
+                if due_delta_days < 0:
+                    task.virtual_tags.add(VirtualTag.OVERDUE)
+                elif due_delta_days == 0:
+                    task.virtual_tags.add(VirtualTag.DUE)
+                    task.virtual_tags.add(VirtualTag.DUETODAY)
+                elif due_delta_days <= config.due:
+                    task.virtual_tags.add(VirtualTag.DUE)
 
     @property
     def depends(self) -> list[str]:
@@ -150,7 +151,7 @@ class TasksChanged(Message):
 class TaskTuiApp(App):
     CSS_PATH = "./TasTuiApp.tscc"
     headings: list[tuple[str, str]] = list()
-    tasks: TaskStore = TaskStore([])
+    tasks: TaskStore
     report: str
     config: Config
     BINDINGS = [
@@ -163,6 +164,7 @@ class TaskTuiApp(App):
     def __init__(self, report: str) -> None:
         self.report = report
         self.config = task_cli.get_config()
+        self.tasks = TaskStore([], self.config)
         super().__init__()
 
     def compose(self) -> ComposeResult:

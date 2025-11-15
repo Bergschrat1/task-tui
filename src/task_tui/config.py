@@ -1,8 +1,11 @@
 # ruff: noqa: F841
+import logging
 from typing import Callable, TypeVar
 
 from rich.color import Color
 from rich.style import Style
+
+log = logging.getLogger(__name__)
 
 COLOR_INDEXES = {
     "black": 0,
@@ -24,11 +27,21 @@ class Config:
     def __init__(self, config_data: str) -> None:
         config_lines = config_data.splitlines()
         self.color = self._parse_color_config(config_lines)
-        self.due = self._get_config(config_lines, "due", int, 7)
+        self.due = self._get_config(config_lines, "due", 7, int)
+        self.color_precedence = self._get_config(
+            config_lines,
+            "rule.precedence.color",
+            "deleted,completed,active,keyword.,tag.,project.,overdue,scheduled,due.today,due,blocked,blocking,recurring,tagged,uda.",
+            str,
+        )
 
-    def _get_config(self, config_lines: list[str], config_name: str, default: T, parser: Callable = None) -> T:
+    def _get_config(self, config_lines: list[str], config_name: str, default: T, parser: Callable[[str], T]) -> T:
         for line in config_lines:
-            config_key, config_value = line.split(maxsplit=1)
+            config_split = line.split(maxsplit=1)
+            if len(config_split) == 1:
+                return default
+            else:
+                config_key, config_value = config_split
             if config_key == config_name:
                 return parser(config_value)
         return default
