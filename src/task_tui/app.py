@@ -225,7 +225,7 @@ class TaskTuiApp(App):
                 select_task_index = self.tasks._get_index_by_uuid(task.uuid)
             except TaskStoreError as e:
                 log.error("Failed to get task by id: %s", e)
-                self.notify("Failed to select task with id: %s", event.select_task_id)
+                self.notify(f"Failed to select task with id: {event.select_task_id}")
                 select_task_index = 0
         else:
             select_task_index = previous_row
