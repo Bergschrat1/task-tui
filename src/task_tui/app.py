@@ -105,9 +105,11 @@ class TaskStore:
 
             for dependency_uuid in task.depends:
                 dependency = self._get_task_by_uuid(dependency_uuid)
-                if dependency.status not in (VirtualTag.COMPLETED, VirtualTag.DELETED) and task.status not in (
-                    VirtualTag.COMPLETED,
-                    VirtualTag.DELETED,
+                if dependency is None:
+                    continue
+                if dependency.status not in (Status.COMPLETED, Status.DELETED) and task.status not in (
+                    Status.COMPLETED,
+                    Status.DELETED,
                 ):
                     dependency.virtual_tags.add(VirtualTag.BLOCKING)
                     task.virtual_tags.add(VirtualTag.BLOCKED)
