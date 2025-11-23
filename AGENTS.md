@@ -5,6 +5,7 @@ Core application code resides in `src/task_tui/`, with `app.py` wiring the Textu
 
 ## Build, Test, and Development Commands
 - `uv run task_tui`: launch the interactive TUI using the Typer entry point.
+- `uv run ty check`: Type checking
 - `uv run python -m task_tui.main health`: quick smoke check that the CLI bootstraps correctly.
 - `uv run ruff check src tests`: lint the codebase using the shared configuration in `pyproject.toml`.
 - `uv run ruff format`: format the codebase using the shared configuration in `pyproject.toml`.
@@ -12,6 +13,7 @@ Core application code resides in `src/task_tui/`, with `app.py` wiring the Textu
 
 ## Coding Style & Naming Conventions
 Follow standard Python 3.14 syntax with four-space indentation and type hints on public callables. Ruff enforces a 150-character line limit and the ANN/DOC rule sets, so prefer explicit annotations and concise docstrings describing intent rather than narration. Module names are snake_case; classes use CapWords, and user-facing Typer commands stay lowercase with hyphen-free verbs (see `main.py`).
+Always use type hints for function parameters and return values. Never use `typing.Any` unless necessary.
 
 ## Testing Guidelines
 Use `pytest` with test files named `test_*.py`; group related cases into classes when fixtures are shared. Mimic the patterns in `tests/test_config.py`, and pull structured data from `test_data/` instead of hard-coding paths so the suite remains hermetic. New features should include a regression test that exercises both the Typer CLI entry point and the Textual widget logic when feasible.
