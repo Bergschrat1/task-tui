@@ -31,6 +31,7 @@
             '';
 
             TASKDATA = "./test_data/";
+            TASKRC = "./test_data/taskrc";
           };
         }
       );

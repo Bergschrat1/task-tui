@@ -8,6 +8,31 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict
 IsoDateTime = Annotated[datetime, BeforeValidator(datetime.fromisoformat)]
 
 
+class VirtualTag(StrEnum):
+    """Virtual tags.
+
+    Value is the color configuration name.
+    """
+
+    ACTIVE = "active"
+    BLOCKED = "blocked"
+    BLOCKING = "blocking"
+    COMPLETED = "completed"
+    DELETED = "deleted"
+    DUE = "due"
+    DUETODAY = "due.today"
+    NO_PROJECT = "project.none"
+    NO_TAG = "tag.none"
+    OVERDUE = "overdue"
+    PRIORITY = "priority"
+    PROJECT = "project"
+    RECURRING = "recurring"
+    SCHEDULED = "scheduled"
+    TAGGED = "tagged"
+    UNTIL = "until"
+    WAITING = "waiting"
+
+
 class Status(StrEnum):
     PENDING = auto()
     DELETED = auto()
@@ -39,7 +64,11 @@ class Task(BaseModel):
     urgency: float
     annotations: list[Annotation] | None = None
     priority: str | None = None
-    tags: list[str] | None = None
-    depends: list[UUID] = list()
+    tags: set[str] = set()
+    depends: set[UUID] = set()
+    virtual_tags: set[VirtualTag] = set()
 
     model_config = ConfigDict(extra="allow")
+
+    def __str__(self) -> str:
+        return f'Task(id={self.id}, description="{self.description}, virtual_tags=[{",".join(self.virtual_tags)}]")'
