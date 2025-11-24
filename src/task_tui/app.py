@@ -161,6 +161,7 @@ class TaskTuiApp(App):
         Binding("d", "set_done", "Set done"),
         Binding("a", "add_task", "Add task"),
         Binding("r", "refresh_tasks", "Refresh"),
+        Binding("s", "toggle_start_stop", "Start/stop"),
     ]
 
     def __init__(self, report: str) -> None:
@@ -274,3 +275,18 @@ class TaskTuiApp(App):
         current_task = self.tasks[table.cursor_row]
         confirm_done_scree = ConfirmDialog(f'Are you sure you want set task "{current_task.description}" ({current_task.id}) to done?')
         self.push_screen(confirm_done_scree, set_done)
+
+    def action_toggle_start_stop(self) -> None:
+        table = self.query_one(TaskReport)
+        if len(self.tasks) == 0:
+            return
+
+        current_task = self.tasks[table.cursor_row]
+        if current_task.start is None:
+            task_cli.start_task(current_task)
+            self.notify(f'Task "{current_task.description}" started')
+        else:
+            task_cli.stop_task(current_task)
+            self.notify(f'Task "{current_task.description}" stopped')
+
+        self.post_message(TasksChanged(select_task_id=current_task.id))

@@ -64,6 +64,14 @@ class TaskCli:
         log.info("Setting task %s to done", task.id)
         self._run_task(str(task.uuid), "done")
 
+    def start_task(self, task: Task) -> None:
+        log.info("Starting task %s", task.id)
+        self._run_task(str(task.uuid), "start")
+
+    def stop_task(self, task: Task) -> None:
+        log.info("Stopping task %s", task.id)
+        self._run_task(str(task.uuid), "stop")
+
     def add_task(self, description: str) -> int:
         log.info("Adding task with description %s", description)
         # split so that description isn't passed as one complete string (which would not allow to add prio/proj/etc.)
