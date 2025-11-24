@@ -33,3 +33,37 @@ def get_current_datetime() -> datetime:
 
 def get_current_date() -> date:
     return date.today()
+
+
+def format_vague_duration(seconds: float) -> str:
+    sign = "-" if seconds < 0 else ""
+    seconds = abs(seconds)
+    days = seconds / 86400
+
+    if seconds >= 86400 * 365:
+        value = f"{days / 365:.1f}y"
+    elif seconds >= 86400 * 90:
+        value = f"{int(days / 30)}mo"
+    elif seconds >= 86400 * 14:
+        value = f"{int(days / 7)}w"
+    elif seconds >= 86400:
+        value = f"{int(days)}d"
+    elif seconds >= 3600:
+        value = f"{int(seconds / 3600)}h"
+    elif seconds >= 60:
+        value = f"{int(seconds / 60)}min"
+    elif seconds >= 1:
+        value = f"{int(seconds)}s"
+    else:
+        value = ""
+
+    return f"{sign}{value}" if value else value
+
+
+def format_vague_datetime(target: datetime | None, reference: datetime | None = None) -> str:
+    if target is None:
+        return ""
+
+    ref = reference or get_current_datetime()
+    delta_seconds = (target - ref).total_seconds()
+    return format_vague_duration(delta_seconds)
