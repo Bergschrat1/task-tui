@@ -1,4 +1,7 @@
 import logging
+from collections import defaultdict
+from dataclasses import dataclass
+from typing import Iterable
 
 from rich.style import Style
 from rich.text import Text
@@ -10,6 +13,8 @@ from textual.events import Key
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Footer, Input, Label
 from textual.widgets.data_table import CursorType, RowKey
+
+from task_tui.data_models import Status, Task
 
 log = logging.getLogger(__name__)
 
@@ -183,3 +188,47 @@ class TaskReport(DataTable):
     ) -> bool:
         # overwrite the _should_highlight function to always return false. We only want to use the marker
         return False
+
+
+@dataclass
+class ProjectAggregate:
+    total: int = 0
+    pending: int = 0
+    completed: int = 0
+    urgency: float = 0.0
+
+
+class ProjectSummary(DataTable):
+    def __init__(self) -> None:
+        super().__init__()
+        self.cursor_type = "row"
+        self.show_row_labels = False
+        self.zebra_stripes = True
+
+    def on_mount(self) -> None:
+        self.clear(columns=True)
+        self.add_columns("Project", "Total", "Pending", "Completed", "Urgency Sum")
+
+    def refresh_from_tasks(self, tasks: Iterable[Task]) -> None:
+        aggregates: dict[str, ProjectAggregate] = defaultdict(ProjectAggregate)
+        for task in tasks:
+            project_name = task.project or "(none)"
+            aggregate = aggregates[project_name]
+            aggregate.total += 1
+            if task.status == Status.COMPLETED:
+                aggregate.completed += 1
+            elif task.status != Status.DELETED:
+                aggregate.pending += 1
+            aggregate.urgency += task.urgency
+
+        self.clear(columns=False)
+        for project_name in sorted(aggregates.keys()):
+            aggregate = aggregates[project_name]
+            self.add_row(
+                project_name,
+                aggregate.total,
+                aggregate.pending,
+                aggregate.completed,
+                f"{aggregate.urgency:.2f}",
+            )
+        self.refresh()
