@@ -1,5 +1,5 @@
 import logging
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 from rich.style import Style
 
@@ -28,7 +28,7 @@ def get_style_for_task(task: Task, config: Config) -> Style:
 
 
 def get_current_datetime() -> datetime:
-    return datetime.now()
+    return datetime.now(UTC)
 
 
 def get_current_date() -> date:

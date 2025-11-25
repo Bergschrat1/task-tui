@@ -1,5 +1,6 @@
 from datetime import datetime
 from types import SimpleNamespace
+from typing import cast
 from uuid import uuid4
 
 import pytest
@@ -13,10 +14,10 @@ def _make_task(start: datetime | None = None) -> Task:
     return Task(
         id=1,
         description="task",
-        entry=now.isoformat(),
-        modified=now.isoformat(),
+        entry=cast(datetime, now.isoformat()),
+        modified=cast(datetime, now.isoformat()),
         due=None,
-        start=start.isoformat() if start else None,
+        start=cast(datetime, start.isoformat()) if start else None,
         scheduled=None,
         wait=None,
         end=None,
@@ -34,7 +35,8 @@ def _make_task(start: datetime | None = None) -> Task:
     )
 
 
-def test_start_task_uses_task_cli(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.fixture()
+def cli_with_spy(monkeypatch: pytest.MonkeyPatch) -> tuple[TaskCli, list[tuple[str, ...]]]:
     calls: list[tuple[str, ...]] = []
 
     def fake_run(self: TaskCli, *args: str) -> SimpleNamespace:
@@ -42,27 +44,53 @@ def test_start_task_uses_task_cli(monkeypatch: pytest.MonkeyPatch) -> None:
         return SimpleNamespace(stdout="", returncode=0)
 
     monkeypatch.setattr(TaskCli, "_run_task", fake_run, raising=False)
-    cli = TaskCli()
+    return TaskCli(), calls
+
+
+def test_start_task_uses_task_cli(cli_with_spy: tuple[TaskCli, list[tuple[str, ...]]]) -> None:
+    cli, calls = cli_with_spy
     task = _make_task()
+    calls.clear()
 
     cli.start_task(task)
 
-    assert calls[0] == ("show",)
-    assert calls[1] == (str(task.uuid), "start")
+    assert calls == [(str(task.uuid), "start")]
 
 
-def test_stop_task_uses_task_cli(monkeypatch: pytest.MonkeyPatch) -> None:
-    calls: list[tuple[str, ...]] = []
-
-    def fake_run(self: TaskCli, *args: str) -> SimpleNamespace:
-        calls.append(args)
-        return SimpleNamespace(stdout="", returncode=0)
-
-    monkeypatch.setattr(TaskCli, "_run_task", fake_run, raising=False)
-    cli = TaskCli()
+def test_stop_task_uses_task_cli(cli_with_spy: tuple[TaskCli, list[tuple[str, ...]]]) -> None:
+    cli, calls = cli_with_spy
     task = _make_task(start=datetime(2024, 1, 1, 12, 0, 0))
+    calls.clear()
 
     cli.stop_task(task)
 
+    assert calls == [(str(task.uuid), "stop")]
+
+
+def test_modify_task_uses_task_cli(cli_with_spy: tuple[TaskCli, list[tuple[str, ...]]]) -> None:
+    cli, calls = cli_with_spy
+    task = _make_task()
+    calls.clear()
+
+    cli.modify_task(task, "project:Home +tag")
+
+    assert calls == [(str(task.uuid), "modify", "project:Home", "+tag")]
+
+
+def test_log_task_uses_task_cli(cli_with_spy: tuple[TaskCli, list[tuple[str, ...]]]) -> None:
+    cli, calls = cli_with_spy
+
+    cli.log_task("read book")
+
     assert calls[0] == ("show",)
-    assert calls[1] == (str(task.uuid), "stop")
+    assert calls[1] == ("log", "read", "book")
+
+
+def test_annotate_task_uses_task_cli(cli_with_spy: tuple[TaskCli, list[tuple[str, ...]]]) -> None:
+    cli, calls = cli_with_spy
+    task = _make_task()
+
+    cli.annotate_task(task, "note")
+
+    assert calls[0] == ("show",)
+    assert calls[1] == (str(task.uuid), "annotate", "note")
