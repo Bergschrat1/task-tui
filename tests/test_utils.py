@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Iterable, Set, cast
 from uuid import UUID
 
@@ -7,7 +7,7 @@ from rich.style import Style
 
 from task_tui.config import Config
 from task_tui.data_models import Status, Task, VirtualTag
-from task_tui.utils import get_style_for_task
+from task_tui.utils import format_vague_datetime, format_vague_duration, get_style_for_task
 
 
 def make_config(color_lines: Iterable[str], precedence: str) -> Config:
@@ -100,3 +100,21 @@ class TestGetStyleForTask:
 
         style = get_style_for_task(task, config)
         assert style == Style()
+
+
+class TestVagueFormatting:
+    def test_format_vague_duration_thresholds(self) -> None:
+        assert format_vague_duration(86400 * 400) == "1.1y"
+        assert format_vague_duration(86400 * 120) == "4mo"
+        assert format_vague_duration(86400 * 21) == "3w"
+        assert format_vague_duration(86400 * 2) == "2d"
+        assert format_vague_duration(3600 * 5) == "5h"
+        assert format_vague_duration(60 * 3) == "3min"
+        assert format_vague_duration(42) == "42s"
+        assert format_vague_duration(-7200) == "-2h"
+
+    def test_format_vague_datetime_with_reference(self) -> None:
+        reference = datetime(2024, 1, 1, 12, 0, 0)
+        assert format_vague_datetime(reference + timedelta(days=1), reference) == "1d"
+        assert format_vague_datetime(reference - timedelta(hours=2), reference) == "-2h"
+        assert format_vague_datetime(None, reference) == ""

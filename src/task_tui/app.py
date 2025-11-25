@@ -14,7 +14,12 @@ from task_tui.config import Config
 from task_tui.data_models import Status, Task, VirtualTag
 from task_tui.exceptions import TaskStoreError
 from task_tui.task_cli import TaskCli
-from task_tui.utils import get_current_date, get_style_for_task
+from task_tui.utils import (
+    format_vague_datetime,
+    get_current_date,
+    get_current_datetime,
+    get_style_for_task,
+)
 from task_tui.widgets import ConfirmDialog, TaskReport, TextInput
 
 log = logging.getLogger(__name__)
@@ -30,11 +35,14 @@ class DueState(Enum):
 
 class TaskStore:
     tasks: list[Task]
+    VAGUE_DATETIME_COLUMNS = {"entry", "modified", "due", "start", "scheduled", "wait", "end", "until"}
 
     def __getattr__(self, attribute_name: str) -> list[Any]:
         if attribute_name not in Task.model_fields:
             msg = "'{0}': object has no attribute '{1}'"
             raise AttributeError(msg.format(type(self).__name__, attribute_name))
+        if attribute_name in self.VAGUE_DATETIME_COLUMNS:
+            return self._get_vague_datetime_column(attribute_name)
         try:
             # if there is a special formatting function for this attribute we use that
             ret = self.__getattribute__(attribute_name)
@@ -76,6 +84,10 @@ class TaskStore:
 
     def _get_task_column(self, col_name: str) -> list[Any]:
         return [getattr(task, col_name) for task in self.tasks]
+
+    def _get_vague_datetime_column(self, col_name: str) -> list[str]:
+        now = get_current_datetime()
+        return [format_vague_datetime(getattr(task, col_name), now) for task in self.tasks]
 
     def _update_virtual_tags(self, config: Config) -> None:
         today = get_current_date()
