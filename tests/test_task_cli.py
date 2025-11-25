@@ -44,11 +44,11 @@ def test_start_task_uses_task_cli(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(TaskCli, "_run_task", fake_run, raising=False)
     cli = TaskCli()
     task = _make_task()
+    calls.clear()
 
     cli.start_task(task)
 
-    assert calls[0] == ("show",)
-    assert calls[1] == (str(task.uuid), "start")
+    assert calls == [(str(task.uuid), "start")]
 
 
 def test_stop_task_uses_task_cli(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -61,8 +61,43 @@ def test_stop_task_uses_task_cli(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(TaskCli, "_run_task", fake_run, raising=False)
     cli = TaskCli()
     task = _make_task(start=datetime(2024, 1, 1, 12, 0, 0))
+    calls.clear()
 
     cli.stop_task(task)
 
-    assert calls[0] == ("show",)
-    assert calls[1] == (str(task.uuid), "stop")
+    assert calls == [(str(task.uuid), "stop")]
+
+
+def test_modify_task_uses_task_cli(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[str, ...]] = []
+
+    def fake_run(self: TaskCli, *args: str) -> SimpleNamespace:
+        calls.append(args)
+        return SimpleNamespace(stdout="", returncode=0, stderr="")
+
+    monkeypatch.setattr(TaskCli, "_run_task", fake_run, raising=False)
+    cli = TaskCli()
+    task = _make_task()
+    calls.clear()
+
+    cli.modify_task(task, "project:Home +tag")
+
+    assert calls == [(str(task.uuid), "modify", "project:Home", "+tag")]
+
+
+def test_modify_task_raises_on_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[str, ...]] = []
+
+    def fake_run(self: TaskCli, *args: str) -> SimpleNamespace:
+        calls.append(args)
+        return SimpleNamespace(stdout="", stderr="mod failed", returncode=1)
+
+    monkeypatch.setattr(TaskCli, "_run_task", fake_run, raising=False)
+    cli = TaskCli()
+    task = _make_task()
+    calls.clear()
+
+    with pytest.raises(ValueError, match="mod failed"):
+        cli.modify_task(task, "priority:H")
+
+    assert calls == [(str(task.uuid), "modify", "priority:H")]

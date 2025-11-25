@@ -172,6 +172,7 @@ class TaskTuiApp(App):
         Binding("q,escape", "quit", "Quit"),
         Binding("d", "set_done", "Set done"),
         Binding("a", "add_task", "Add task"),
+        Binding("m", "modify_task", "Modify task"),
         Binding("r", "refresh_tasks", "Refresh"),
         Binding("s", "toggle_start_stop", "Start/stop"),
     ]
@@ -302,3 +303,26 @@ class TaskTuiApp(App):
             self.notify(f'Task "{current_task.description}" stopped')
 
         self.post_message(TasksChanged(select_task_id=current_task.id))
+
+    def action_modify_task(self) -> None:
+        table = self.query_one(TaskReport)
+        if len(self.tasks) == 0:
+            return
+
+        current_task = self.tasks[table.cursor_row]
+
+        def modify_task(modification: str | None) -> None:
+            if modification is None or modification.strip() == "":
+                return
+
+            try:
+                task_cli.modify_task(current_task, modification)
+            except ValueError as e:
+                self.notify(f"Failed to modify task:\n{str(e)}", severity="error", markup=True)
+                return
+
+            self.notify(f'Task "{current_task.description}" modified')
+            self.post_message(TasksChanged(select_task_id=current_task.id))
+
+        modify_task_screen = TextInput("Enter modification")
+        self.push_screen(modify_task_screen, modify_task)

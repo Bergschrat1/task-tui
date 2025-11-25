@@ -72,6 +72,14 @@ class TaskCli:
         log.info("Stopping task %s", task.id)
         self._run_task(str(task.uuid), "stop")
 
+    def modify_task(self, task: Task, modification: str) -> None:
+        log.info("Modifying task %s", task.id)
+        modification_args = modification.split(" ")
+        completed_process = self._run_task(str(task.uuid), "modify", *modification_args)
+        if completed_process.returncode != 0:
+            log.error("Failed to modify task: %s", completed_process.stderr)
+            raise ValueError(completed_process.stderr.strip())
+
     def add_task(self, description: str) -> int:
         log.info("Adding task with description %s", description)
         # split so that description isn't passed as one complete string (which would not allow to add prio/proj/etc.)
