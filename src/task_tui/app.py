@@ -294,7 +294,6 @@ class TaskTuiApp(App):
         table = self.query_one(TaskReport)
         if len(self.tasks) == 0:
             return
-
         current_task = self.tasks[table.cursor_row]
         if current_task.start is None:
             task_cli.start_task(current_task)
@@ -322,7 +321,7 @@ class TaskTuiApp(App):
                 self.notify(f"Failed to annotate task:\n{str(e)}", severity="error", markup=True)
                 return
 
-            self.notify(f'Task "{current_task.description}" annotated')
+            self.notify(f'Task "{current_task.description}" annotated with "{annotation}"')
             self.post_message(TasksChanged(select_task_id=current_task.id))
 
         annotation_screen = TextInput("Enter annotation")
