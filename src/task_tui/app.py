@@ -175,6 +175,7 @@ class TaskTuiApp(App):
         Binding("A", "annotate_task", "Annotate"),
         Binding("r", "refresh_tasks", "Refresh"),
         Binding("s", "toggle_start_stop", "Start/stop"),
+        Binding("l", "log_task", "Log task"),
     ]
 
     def __init__(self, report: str) -> None:
@@ -326,3 +327,17 @@ class TaskTuiApp(App):
 
         annotation_screen = TextInput("Enter annotation")
         self.push_screen(annotation_screen, annotate_task)
+
+    def action_log_task(self) -> None:
+        def log_task(description: str) -> None:
+            try:
+                task_cli.log_task(description)
+            except ValueError as e:
+                self.notify(f"Failed to log task:\n{str(e)}", severity="error", markup=True)
+                return
+
+            self.post_message(TasksChanged())
+            self.notify(f'Logged task "{description}"')
+
+        log_task_screen = TextInput("Enter task description")
+        self.push_screen(log_task_screen, log_task)
