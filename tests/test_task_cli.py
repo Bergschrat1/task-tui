@@ -66,3 +66,20 @@ def test_stop_task_uses_task_cli(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert calls[0] == ("show",)
     assert calls[1] == (str(task.uuid), "stop")
+
+
+def test_annotate_task_uses_task_cli(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[str, ...]] = []
+
+    def fake_run(self: TaskCli, *args: str) -> SimpleNamespace:
+        calls.append(args)
+        return SimpleNamespace(stdout="", returncode=0)
+
+    monkeypatch.setattr(TaskCli, "_run_task", fake_run, raising=False)
+    cli = TaskCli()
+    task = _make_task()
+
+    cli.annotate_task(task, "note")
+
+    assert calls[0] == ("show",)
+    assert calls[1] == (str(task.uuid), "annotate", "note")
