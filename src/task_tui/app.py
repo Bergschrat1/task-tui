@@ -174,6 +174,7 @@ class TaskTuiApp(App):
         Binding("a", "add_task", "Add task"),
         Binding("r", "refresh_tasks", "Refresh"),
         Binding("s", "toggle_start_stop", "Start/stop"),
+        Binding("l", "log_task", "Log task"),
     ]
 
     def __init__(self, report: str) -> None:
@@ -302,3 +303,17 @@ class TaskTuiApp(App):
             self.notify(f'Task "{current_task.description}" stopped')
 
         self.post_message(TasksChanged(select_task_id=current_task.id))
+
+    def action_log_task(self) -> None:
+        def log_task(description: str) -> None:
+            try:
+                task_cli.log_task(description)
+            except ValueError as e:
+                self.notify(f"Failed to log task:\n{str(e)}", severity="error", markup=True)
+                return
+
+            self.post_message(TasksChanged())
+            self.notify(f'Logged task "{description}"')
+
+        log_task_screen = TextInput("Enter task description")
+        self.push_screen(log_task_screen, log_task)
