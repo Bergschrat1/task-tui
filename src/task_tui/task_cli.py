@@ -92,3 +92,20 @@ class TaskCli:
 
         task_id = int(match.group(1))
         return task_id
+
+    def log_task(self, description: str) -> int:
+        log.info("Logging task with description %s", description)
+        description_arguments: list[str] = description.split(" ")
+        completed_process = self._run_task("log", *description_arguments)
+        if completed_process.returncode != 0:
+            log.error("Failed to log task: %s", completed_process)
+            raise ValueError(completed_process.stderr.strip())
+
+        confirmation = completed_process.stdout.strip()
+        task_id_pattern = r"Logged task (\d+)\."
+        match = re.search(task_id_pattern, confirmation)
+        if match is None:
+            log.error("Failed to get task id from logged task")
+            raise ValueError("Failed to get task id from logged task")
+
+        return int(match.group(1))
