@@ -1,5 +1,4 @@
-import importlib
-import sys
+import types
 from datetime import datetime, timedelta
 from uuid import UUID
 
@@ -7,21 +6,6 @@ import pytest
 
 from task_tui.config import Config
 from task_tui.data_models import Status, Task
-
-
-@pytest.fixture()
-def app_module(monkeypatch: pytest.MonkeyPatch):
-    import task_tui.task_cli as task_cli_mod
-
-    class DummyTaskCli:
-        def __init__(self) -> None:
-            pass
-
-    monkeypatch.setattr(task_cli_mod, "TaskCli", DummyTaskCli)
-    if "task_tui.app" in sys.modules:
-        del sys.modules["task_tui.app"]
-
-    return importlib.import_module("task_tui.app")
 
 
 def make_task(
@@ -58,9 +42,9 @@ def make_task(
     )
 
 
-def test_task_store_formats_vague_dates(app_module, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_task_store_formats_vague_dates(app_module_mock: types.ModuleType, monkeypatch: pytest.MonkeyPatch) -> None:
     reference = datetime(2024, 1, 1, 12, 0, 0)
-    monkeypatch.setattr(app_module, "get_current_datetime", lambda: reference)
+    monkeypatch.setattr(app_module_mock, "get_current_datetime", lambda: reference)
 
     tasks = [
         make_task(
@@ -83,7 +67,7 @@ def test_task_store_formats_vague_dates(app_module, monkeypatch: pytest.MonkeyPa
         ),
     ]
 
-    task_store = app_module.TaskStore(tasks, Config(""))
+    task_store = getattr(app_module_mock, "TaskStore")(tasks, Config(""))
 
     assert task_store.entry == ["-3h", "-1.1y"]
     assert task_store.due == ["3w", ""]

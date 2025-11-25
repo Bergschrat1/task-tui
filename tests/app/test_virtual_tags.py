@@ -1,3 +1,4 @@
+import types
 from datetime import date, datetime, timedelta
 from typing import Callable, Protocol, cast, runtime_checkable
 from uuid import UUID, uuid4
@@ -18,23 +19,9 @@ TaskStoreFactory = Callable[[list[Task], Config], TaskStoreProto]
 
 
 @pytest.fixture()
-def task_store_cls(monkeypatch: pytest.MonkeyPatch) -> TaskStoreFactory:
-    import importlib
-    import sys
-
-    import task_tui.task_cli as task_cli_mod
-
-    class DummyTaskCli:
-        def __init__(self) -> None:
-            pass
-
-    monkeypatch.setattr(task_cli_mod, "TaskCli", DummyTaskCli)
-    if "task_tui.app" in sys.modules:
-        del sys.modules["task_tui.app"]
-    app_mod = importlib.import_module("task_tui.app")
-
+def task_store_cls(app_module_mock: types.ModuleType, monkeypatch: pytest.MonkeyPatch) -> TaskStoreFactory:
     def factory(tasks: list[Task], config: Config) -> TaskStoreProto:
-        return cast(TaskStoreProto, app_mod.TaskStore(tasks, config))
+        return cast(TaskStoreProto, getattr(app_module_mock, "TaskStore")(tasks, config))
 
     return factory
 
