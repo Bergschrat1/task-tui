@@ -307,13 +307,13 @@ class TaskTuiApp(App):
     def action_log_task(self) -> None:
         def log_task(description: str) -> None:
             try:
-                task_id = task_cli.log_task(description)
+                task_cli.log_task(description)
             except ValueError as e:
                 self.notify(f"Failed to log task:\n{str(e)}", severity="error", markup=True)
                 return
 
             self.post_message(TasksChanged())
-            self.notify(f'Logged task "{description}" as #{task_id}')
+            self.notify(f'Logged task "{description}"')
 
         log_task_screen = TextInput("Enter task description")
         self.push_screen(log_task_screen, log_task)
