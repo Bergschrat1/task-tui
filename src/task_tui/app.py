@@ -177,7 +177,8 @@ class TaskTuiApp(App):
         Binding("A", "annotate_task", "Annotate"),
         Binding("r", "refresh_tasks", "Refresh"),
         Binding("s", "toggle_start_stop", "Start/stop"),
-        Binding("p", "focus_projects", "Projects"),
+        Binding("[", "activate_previous_tab", "Prev tab"),
+        Binding("]", "activate_next_tab", "Next tab"),
         Binding("l", "log_task", "Log task"),
     ]
 
@@ -230,6 +231,28 @@ class TaskTuiApp(App):
     def _update_projects(self) -> None:
         projects = self.query_one(ProjectSummary)
         projects.refresh_from_tasks(self.tasks.tasks)
+
+    def _cycle_tabs(self, direction: int) -> None:
+        tabs = self.query_one(TabbedContent)
+        tab_ids = [pane.id for pane in tabs.query(TabPane) if pane.id is not None]
+        if len(tab_ids) == 0:
+            return
+
+        try:
+            current_index = tab_ids.index(tabs.active)
+        except ValueError:
+            current_index = 0
+
+        new_tab_id = tab_ids[(current_index + direction) % len(tab_ids)]
+        tabs.active = new_tab_id
+        self._focus_tab_content(new_tab_id)
+
+    def _focus_tab_content(self, tab_id: str) -> None:
+        if tab_id == "projects":
+            self.query_one(ProjectSummary).focus()
+            return
+
+        self.query_one(TaskReport).focus()
 
     @on(TasksChanged)
     async def _update_tasks(self, event: TasksChanged) -> None:
@@ -315,10 +338,11 @@ class TaskTuiApp(App):
 
         self.post_message(TasksChanged(select_task_id=current_task.id))
 
-    def action_focus_projects(self) -> None:
-        tabs = self.query_one(TabbedContent)
-        tabs.active = "projects"
-        self.query_one(ProjectSummary).focus()
+    def action_activate_previous_tab(self) -> None:
+        self._cycle_tabs(-1)
+
+    def action_activate_next_tab(self) -> None:
+        self._cycle_tabs(1)
 
     def action_modify_task(self) -> None:
         table = self.query_one(TaskReport)

@@ -115,3 +115,39 @@ def test_projects_tab_updates_with_tasks(monkeypatch: pytest.MonkeyPatch) -> Non
         ["(none)", 1, 1, 0, "2.00"],
         ["alpha", 2, 1, 1, "4.50"],
     ]
+
+
+def test_tab_navigation_shortcuts(monkeypatch: pytest.MonkeyPatch) -> None:
+    class DummyTaskCli:
+        def __init__(self) -> None:
+            pass
+
+    monkeypatch.setattr(task_cli_mod, "TaskCli", DummyTaskCli)
+    if "task_tui.app" in sys.modules:
+        del sys.modules["task_tui.app"]
+    app_module = importlib.import_module("task_tui.app")
+
+    monkeypatch.setattr(app_module.task_cli, "get_config", lambda: Config(""), raising=False)
+    monkeypatch.setattr(app_module.task_cli, "export_tasks", lambda report: [], raising=False)
+    monkeypatch.setattr(
+        app_module.task_cli, "get_report_columns", lambda report: [("id", "ID"), ("description", "Description")], raising=False
+    )
+
+    app = app_module.TaskTuiApp("next")
+
+    async def run_app() -> None:
+        async with app.run_test() as pilot:
+            await pilot.pause()
+
+            tabbed_content = app.query_one(TabbedContent)
+            assert tabbed_content.active == "tasks"
+
+            await pilot.press("]")
+            await pilot.pause()
+            assert tabbed_content.active == "projects"
+
+            await pilot.press("[")
+            await pilot.pause()
+            assert tabbed_content.active == "tasks"
+
+    asyncio.run(run_app())
