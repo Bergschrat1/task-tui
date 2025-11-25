@@ -72,6 +72,13 @@ class TaskCli:
         log.info("Stopping task %s", task.id)
         self._run_task(str(task.uuid), "stop")
 
+    def annotate_task(self, task: Task, annotation: str) -> None:
+        log.info("Annotating task %s", task.id)
+        completed_process = self._run_task(str(task.uuid), "annotate", annotation)
+        if completed_process.returncode != 0:
+            log.error("Failed to annotate task %s: %s", task.id, completed_process)
+            raise ValueError(completed_process.stderr.strip())
+
     def add_task(self, description: str) -> int:
         log.info("Adding task with description %s", description)
         # split so that description isn't passed as one complete string (which would not allow to add prio/proj/etc.)
