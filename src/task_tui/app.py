@@ -173,8 +173,10 @@ class TaskTuiApp(App):
         Binding("d", "set_done", "Set done"),
         Binding("a", "add_task", "Add task"),
         Binding("m", "modify_task", "Modify task"),
+        Binding("A", "annotate_task", "Annotate"),
         Binding("r", "refresh_tasks", "Refresh"),
         Binding("s", "toggle_start_stop", "Start/stop"),
+        Binding("l", "log_task", "Log task"),
     ]
 
     def __init__(self, report: str) -> None:
@@ -293,7 +295,6 @@ class TaskTuiApp(App):
         table = self.query_one(TaskReport)
         if len(self.tasks) == 0:
             return
-
         current_task = self.tasks[table.cursor_row]
         if current_task.start is None:
             task_cli.start_task(current_task)
@@ -326,3 +327,39 @@ class TaskTuiApp(App):
 
         modify_task_screen = TextInput("Enter modification")
         self.push_screen(modify_task_screen, modify_task)
+
+    def action_annotate_task(self) -> None:
+        table = self.query_one(TaskReport)
+        if len(self.tasks) == 0:
+            return
+        current_task = self.tasks[table.cursor_row]
+
+        def annotate_task(annotation: str) -> None:
+            if annotation.strip() == "":
+                return
+
+            try:
+                task_cli.annotate_task(current_task, annotation)
+            except ValueError as e:
+                self.notify(f"Failed to annotate task:\n{str(e)}", severity="error", markup=True)
+                return
+
+            self.notify(f'Task "{current_task.description}" annotated with "{annotation}"')
+            self.post_message(TasksChanged(select_task_id=current_task.id))
+
+        annotation_screen = TextInput("Enter annotation")
+        self.push_screen(annotation_screen, annotate_task)
+
+    def action_log_task(self) -> None:
+        def log_task(description: str) -> None:
+            try:
+                task_cli.log_task(description)
+            except ValueError as e:
+                self.notify(f"Failed to log task:\n{str(e)}", severity="error", markup=True)
+                return
+
+            self.post_message(TasksChanged())
+            self.notify(f'Logged task "{description}"')
+
+        log_task_screen = TextInput("Enter task description")
+        self.push_screen(log_task_screen, log_task)

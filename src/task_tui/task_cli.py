@@ -80,6 +80,13 @@ class TaskCli:
             log.error("Failed to modify task: %s", completed_process.stderr)
             raise ValueError(completed_process.stderr.strip())
 
+    def annotate_task(self, task: Task, annotation: str) -> None:
+        log.info("Annotating task %s", task.id)
+        completed_process = self._run_task(str(task.uuid), "annotate", annotation)
+        if completed_process.returncode != 0:
+            log.error("Failed to annotate task %s: %s", task.id, completed_process)
+            raise ValueError(completed_process.stderr.strip())
+
     def add_task(self, description: str) -> int:
         log.info("Adding task with description %s", description)
         # split so that description isn't passed as one complete string (which would not allow to add prio/proj/etc.)
@@ -100,3 +107,11 @@ class TaskCli:
 
         task_id = int(match.group(1))
         return task_id
+
+    def log_task(self, description: str) -> None:
+        log.info("Logging task with description %s", description)
+        description_arguments: list[str] = description.split(" ")
+        completed_process = self._run_task("log", *description_arguments)
+        if completed_process.returncode != 0:
+            log.error("Failed to log task: %s", completed_process)
+            raise ValueError(completed_process.stderr.strip())
