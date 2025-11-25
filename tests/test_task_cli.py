@@ -50,21 +50,31 @@ def cli_with_spy(monkeypatch: pytest.MonkeyPatch) -> tuple[TaskCli, list[tuple[s
 def test_start_task_uses_task_cli(cli_with_spy: tuple[TaskCli, list[tuple[str, ...]]]) -> None:
     cli, calls = cli_with_spy
     task = _make_task()
+    calls.clear()
 
     cli.start_task(task)
 
-    assert calls[0] == ("show",)
-    assert calls[1] == (str(task.uuid), "start")
+    assert calls == [(str(task.uuid), "start")]
 
 
 def test_stop_task_uses_task_cli(cli_with_spy: tuple[TaskCli, list[tuple[str, ...]]]) -> None:
     cli, calls = cli_with_spy
     task = _make_task(start=datetime(2024, 1, 1, 12, 0, 0))
+    calls.clear()
 
     cli.stop_task(task)
 
-    assert calls[0] == ("show",)
-    assert calls[1] == (str(task.uuid), "stop")
+    assert calls == [(str(task.uuid), "stop")]
+
+
+def test_modify_task_uses_task_cli(cli_with_spy: tuple[TaskCli, list[tuple[str, ...]]]) -> None:
+    cli, calls = cli_with_spy
+    task = _make_task()
+    calls.clear()
+
+    cli.modify_task(task, "project:Home +tag")
+
+    assert calls == [(str(task.uuid), "modify", "project:Home", "+tag")]
 
 
 def test_log_task_uses_task_cli(cli_with_spy: tuple[TaskCli, list[tuple[str, ...]]]) -> None:

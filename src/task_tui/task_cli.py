@@ -72,6 +72,14 @@ class TaskCli:
         log.info("Stopping task %s", task.id)
         self._run_task(str(task.uuid), "stop")
 
+    def modify_task(self, task: Task, modification: str) -> None:
+        log.info("Modifying task %s", task.id)
+        modification_args = modification.split(" ")
+        completed_process = self._run_task(str(task.uuid), "modify", *modification_args)
+        if completed_process.returncode != 0:
+            log.error("Failed to modify task: %s", completed_process.stderr)
+            raise ValueError(completed_process.stderr.strip())
+
     def annotate_task(self, task: Task, annotation: str) -> None:
         log.info("Annotating task %s", task.id)
         completed_process = self._run_task(str(task.uuid), "annotate", annotation)
