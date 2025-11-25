@@ -7,8 +7,9 @@ from uuid import UUID
 from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
+from textual.containers import Vertical
 from textual.message import Message
-from textual.widgets import Footer
+from textual.widgets import Footer, TabbedContent, TabPane
 
 from task_tui.config import Config
 from task_tui.data_models import Status, Task, VirtualTag
@@ -20,7 +21,7 @@ from task_tui.utils import (
     get_current_datetime,
     get_style_for_task,
 )
-from task_tui.widgets import ConfirmDialog, TaskReport, TextInput
+from task_tui.widgets import ConfirmDialog, ProjectSummary, TaskReport, TextInput
 
 log = logging.getLogger(__name__)
 
@@ -174,6 +175,7 @@ class TaskTuiApp(App):
         Binding("a", "add_task", "Add task"),
         Binding("r", "refresh_tasks", "Refresh"),
         Binding("s", "toggle_start_stop", "Start/stop"),
+        Binding("p", "focus_projects", "Projects"),
     ]
 
     def __init__(self, report: str) -> None:
@@ -183,8 +185,11 @@ class TaskTuiApp(App):
         super().__init__()
 
     def compose(self) -> ComposeResult:
-        yield TaskReport()
-        yield Footer()
+        with TabbedContent(initial="tasks", id="main-tabs"):
+            with TabPane("Tasks", id="tasks"):
+                yield Vertical(TaskReport(), Footer())
+            with TabPane("Projects", id="projects"):
+                yield ProjectSummary()
 
     def _clean_empty_columns(
         self,
@@ -219,6 +224,10 @@ class TaskTuiApp(App):
             table.add_row(*row, label=label)
             table.set_row_style(index, style)
 
+    def _update_projects(self) -> None:
+        projects = self.query_one(ProjectSummary)
+        projects.refresh_from_tasks(self.tasks.tasks)
+
     @on(TasksChanged)
     async def _update_tasks(self, event: TasksChanged) -> None:
         """Update the tasks using the task cli.
@@ -233,6 +242,7 @@ class TaskTuiApp(App):
         self.tasks = TaskStore(tasks, self.config)
         self.headings = task_cli.get_report_columns(self.report)
         self._update_table()
+        self._update_projects()
 
         if event.select_task_id is not None:
             try:
@@ -302,3 +312,8 @@ class TaskTuiApp(App):
             self.notify(f'Task "{current_task.description}" stopped')
 
         self.post_message(TasksChanged(select_task_id=current_task.id))
+
+    def action_focus_projects(self) -> None:
+        tabs = self.query_one(TabbedContent)
+        tabs.active = "projects"
+        self.query_one(ProjectSummary).focus()
