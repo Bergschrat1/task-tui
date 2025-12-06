@@ -7,8 +7,9 @@ from uuid import UUID
 from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
+from textual.containers import Vertical
 from textual.message import Message
-from textual.widgets import Footer
+from textual.widgets import Footer, TabbedContent, TabPane
 
 from task_tui.config import Config
 from task_tui.data_models import Status, Task, VirtualTag
@@ -20,7 +21,7 @@ from task_tui.utils import (
     get_current_datetime,
     get_style_for_task,
 )
-from task_tui.widgets import ConfirmDialog, TaskReport, TextInput
+from task_tui.widgets import ConfirmDialog, ProjectSummary, TaskReport, TextInput
 
 log = logging.getLogger(__name__)
 
@@ -170,13 +171,15 @@ class TaskTuiApp(App):
     config: Config
     BINDINGS = [
         Binding("q,escape", "quit", "Quit"),
-        Binding("d", "set_done", "Set done"),
         Binding("a", "add_task", "Add task"),
+        Binding("d", "set_done", "Set done"),
         Binding("m", "modify_task", "Modify task"),
         Binding("A", "annotate_task", "Annotate"),
         Binding("r", "refresh_tasks", "Refresh"),
         Binding("s", "toggle_start_stop", "Start/stop"),
         Binding("l", "log_task", "Log task"),
+        Binding("[", "activate_previous_tab", "Prev tab"),
+        Binding("]", "activate_next_tab", "Next tab"),
     ]
 
     def __init__(self, report: str) -> None:
@@ -186,8 +189,11 @@ class TaskTuiApp(App):
         super().__init__()
 
     def compose(self) -> ComposeResult:
-        yield TaskReport()
-        yield Footer()
+        with TabbedContent(initial="tasks", id="main-tabs"):
+            with TabPane("Tasks", id="tasks"):
+                yield Vertical(TaskReport(), Footer())
+            with TabPane("Projects", id="projects"):
+                yield ProjectSummary()
 
     def _clean_empty_columns(
         self,
@@ -222,6 +228,32 @@ class TaskTuiApp(App):
             table.add_row(*row, label=label)
             table.set_row_style(index, style)
 
+    def _update_projects(self) -> None:
+        projects = self.query_one(ProjectSummary)
+        projects.refresh_from_tasks(task_cli.export_tasks("all"))
+
+    def _cycle_tabs(self, direction: int) -> None:
+        tabs = self.query_one(TabbedContent)
+        tab_ids = [pane.id for pane in tabs.query(TabPane) if pane.id is not None]
+        if len(tab_ids) == 0:
+            return
+
+        try:
+            current_index = tab_ids.index(tabs.active)
+        except ValueError:
+            current_index = 0
+
+        new_tab_id = tab_ids[(current_index + direction) % len(tab_ids)]
+        tabs.active = new_tab_id
+        self._focus_tab_content(new_tab_id)
+
+    def _focus_tab_content(self, tab_id: str) -> None:
+        if tab_id == "projects":
+            self.query_one(ProjectSummary).focus()
+            return
+
+        self.query_one(TaskReport).focus()
+
     @on(TasksChanged)
     async def _update_tasks(self, event: TasksChanged) -> None:
         """Update the tasks using the task cli.
@@ -236,6 +268,7 @@ class TaskTuiApp(App):
         self.tasks = TaskStore(tasks, self.config)
         self.headings = task_cli.get_report_columns(self.report)
         self._update_table()
+        self._update_projects()
 
         if event.select_task_id is not None:
             try:
@@ -304,6 +337,12 @@ class TaskTuiApp(App):
             self.notify(f'Task "{current_task.description}" stopped')
 
         self.post_message(TasksChanged(select_task_id=current_task.id))
+
+    def action_activate_previous_tab(self) -> None:
+        self._cycle_tabs(-1)
+
+    def action_activate_next_tab(self) -> None:
+        self._cycle_tabs(1)
 
     def action_modify_task(self) -> None:
         table = self.query_one(TaskReport)
