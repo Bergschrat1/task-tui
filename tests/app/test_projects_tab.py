@@ -112,8 +112,8 @@ def test_projects_tab_updates_with_tasks(monkeypatch: pytest.MonkeyPatch) -> Non
     rows = asyncio.run(run_app())
 
     assert rows == [
-        ["(none)", 1, 1, 0, "2.00"],
-        ["alpha", 2, 1, 1, "4.50"],
+        ["(none)", 1, "0%", "2.00"],
+        ["alpha", 1, "50%", "4.50"],
     ]
 
 
