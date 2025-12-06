@@ -207,7 +207,7 @@ class ProjectSummary(DataTable):
 
     def on_mount(self) -> None:
         self.clear(columns=True)
-        self.add_columns("Project", "Total", "Pending", "Completed", "Urgency Sum")
+        self.add_columns("Project", "Remaining", "Completed", "Urgency Sum")
 
     def refresh_from_tasks(self, tasks: Iterable[Task]) -> None:
         aggregates: dict[str, ProjectAggregate] = defaultdict(ProjectAggregate)
@@ -222,13 +222,12 @@ class ProjectSummary(DataTable):
             aggregate.urgency += task.urgency
 
         self.clear(columns=False)
-        for project_name in sorted(aggregates.keys()):
+        for project_name in sorted(aggregates):
             aggregate = aggregates[project_name]
             self.add_row(
                 project_name,
-                aggregate.total,
                 aggregate.pending,
-                aggregate.completed,
+                f"{int(aggregate.completed / (aggregate.completed + aggregate.pending) * 100)}%",
                 f"{aggregate.urgency:.2f}",
             )
         self.refresh()

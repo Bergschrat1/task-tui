@@ -129,9 +129,7 @@ def test_tab_navigation_shortcuts(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(app_module.task_cli, "get_config", lambda: Config(""), raising=False)
     monkeypatch.setattr(app_module.task_cli, "export_tasks", lambda report: [], raising=False)
-    monkeypatch.setattr(
-        app_module.task_cli, "get_report_columns", lambda report: [("id", "ID"), ("description", "Description")], raising=False
-    )
+    monkeypatch.setattr(app_module.task_cli, "get_report_columns", lambda report: [("id", "ID"), ("description", "Description")], raising=False)
 
     app = app_module.TaskTuiApp("next")
 

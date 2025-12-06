@@ -171,15 +171,15 @@ class TaskTuiApp(App):
     config: Config
     BINDINGS = [
         Binding("q,escape", "quit", "Quit"),
-        Binding("d", "set_done", "Set done"),
         Binding("a", "add_task", "Add task"),
+        Binding("d", "set_done", "Set done"),
         Binding("m", "modify_task", "Modify task"),
         Binding("A", "annotate_task", "Annotate"),
         Binding("r", "refresh_tasks", "Refresh"),
         Binding("s", "toggle_start_stop", "Start/stop"),
+        Binding("l", "log_task", "Log task"),
         Binding("[", "activate_previous_tab", "Prev tab"),
         Binding("]", "activate_next_tab", "Next tab"),
-        Binding("l", "log_task", "Log task"),
     ]
 
     def __init__(self, report: str) -> None:
@@ -230,7 +230,7 @@ class TaskTuiApp(App):
 
     def _update_projects(self) -> None:
         projects = self.query_one(ProjectSummary)
-        projects.refresh_from_tasks(self.tasks.tasks)
+        projects.refresh_from_tasks(task_cli.export_tasks("all"))
 
     def _cycle_tabs(self, direction: int) -> None:
         tabs = self.query_one(TabbedContent)
