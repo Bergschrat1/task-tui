@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [project.scripts]
-task_tui = "task_tui:main.typer_app"
+task-tui = "task_tui:main.typer_app"
 
 [build-system]
 requires = ["hatchling >= 1.26"]
