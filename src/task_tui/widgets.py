@@ -224,6 +224,8 @@ class ProjectSummary(DataTable):
         self.clear(columns=False)
         for project_name in sorted(aggregates):
             aggregate = aggregates[project_name]
+            if aggregate.pending < 1:  # don't include completed projects
+                continue
             self.add_row(
                 project_name,
                 aggregate.pending,

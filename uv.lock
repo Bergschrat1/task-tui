@@ -403,10 +403,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "pydantic", specifier = ">=2.12.5" },
-    { name = "rich", specifier = ">=14.2.0" },
-    { name = "textual", specifier = ">=6.7.1" },
-    { name = "typer", specifier = ">=0.20.0" },
+    { name = "pydantic", specifier = ">=2.11.7" },
+    { name = "rich", specifier = ">=14.1.0" },
+    { name = "textual", specifier = ">=6.2.1" },
+    { name = "typer", specifier = ">=0.17.4" },
 ]
 
 [package.metadata.requires-dev]
