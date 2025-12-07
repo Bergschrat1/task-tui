@@ -35,6 +35,8 @@
               textual
               typer
             ];
+
+            runtimeDependencies = [ pkgs.taskwarrior3 ];
           };
         }
       );
