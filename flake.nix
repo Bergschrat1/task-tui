@@ -16,8 +16,15 @@
         system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
-          python = pkgs.python314;
-          pythonPackages = python.pkgs;
+          pythonPackages = pkgs.python314Packages.override {
+            overrides = final: prev: {
+              pydantic-core = prev.pydantic-core.overrideAttrs (old: {
+                env = (old.env or { }) // {
+                  PYO3_USE_ABI3_FORWARD_COMPATIBILITY = "1";
+                };
+              });
+            };
+          };
         in
         {
           default = pythonPackages.buildPythonApplication {
