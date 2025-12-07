@@ -16,15 +16,20 @@
         system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
-          pythonPackages = pkgs.python314Packages.override {
-            overrides = final: prev: {
-              pydantic-core = prev.pydantic-core.overrideAttrs (old: {
-                env = (old.env or { }) // {
-                  PYO3_USE_ABI3_FORWARD_COMPATIBILITY = "1";
-                };
-              });
+          pythonPackages =
+            pkgs.python314Packages.override {
+              overrides = final: prev: {
+                pydantic-core = prev.pydantic-core.overrideAttrs (old: {
+                  env = (old.env or { }) // {
+                    PYO3_USE_ABI3_FORWARD_COMPATIBILITY = "1";
+                  };
+                });
+
+                astor = prev.astor.overrideAttrs (old: {
+                  doCheck = false;
+                });
+              };
             };
-          };
         in
         {
           default = pythonPackages.buildPythonApplication {
