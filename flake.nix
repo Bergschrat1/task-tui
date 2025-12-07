@@ -12,6 +12,34 @@
       forAllSystems = lib.genAttrs lib.systems.flakeExposed;
     in
     {
+      packages = forAllSystems (
+        system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+          python = pkgs.python314;
+          pythonPackages = python.pkgs;
+        in
+        {
+          default = pythonPackages.buildPythonApplication {
+            pname = "task-tui";
+            version = "0.1.0";
+            src = ./.;
+            pyproject = true;
+
+            build-system = [
+              pythonPackages.hatchling
+            ];
+
+            propagatedBuildInputs = with pythonPackages; [
+              pydantic
+              rich
+              textual
+              typer
+            ];
+          };
+        }
+      );
+
       devShells = forAllSystems (
         system:
         let
