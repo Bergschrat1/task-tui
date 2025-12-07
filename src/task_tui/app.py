@@ -290,6 +290,7 @@ class TaskTuiApp(App):
     def on_mount(self) -> None:
         log.debug("Mounting app")
         self.post_message(TasksChanged())
+        self._focus_tab_content("tasks")
 
     def action_add_task(self) -> None:
         def add_task(description: str) -> None:
