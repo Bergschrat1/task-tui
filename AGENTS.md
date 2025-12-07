@@ -12,7 +12,7 @@ Core application code resides in `src/task_tui/`, with `app.py` wiring the Textu
 - `uv run pytest`: execute the test suite; add `-k <pattern>` for targeted runs.
 
 ## Coding Style & Naming Conventions
-Follow standard Python 3.14 syntax with four-space indentation and type hints on public callables. Ruff enforces a 150-character line limit and the ANN/DOC rule sets, so prefer explicit annotations and concise docstrings describing intent rather than narration. Module names are snake_case; classes use CapWords, and user-facing Typer commands stay lowercase with hyphen-free verbs (see `main.py`).
+Follow standard Python 3.13 syntax with four-space indentation and type hints on public callables. Ruff enforces a 150-character line limit and the ANN/DOC rule sets, so prefer explicit annotations and concise docstrings describing intent rather than narration. Module names are snake_case; classes use CapWords, and user-facing Typer commands stay lowercase with hyphen-free verbs (see `main.py`).
 Always use type hints for function parameters and return values. Never use `typing.Any` unless necessary.
 
 ## Testing Guidelines
