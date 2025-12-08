@@ -101,10 +101,11 @@ def test_projects_tab_updates_with_tasks(monkeypatch: pytest.MonkeyPatch) -> Non
 
     async def run_app() -> list[list[object]]:
         async with app.run_test() as pilot:
+            await pilot.press("]")
             await pilot.pause()
 
             tabbed_content = app.query_one(TabbedContent)
-            assert tabbed_content.active == "tasks"
+            assert tabbed_content.active == "projects"
 
             project_summary = app.query_one(ProjectSummary)
             return [project_summary.get_row_at(index) for index in range(project_summary.row_count)]

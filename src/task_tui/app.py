@@ -229,6 +229,7 @@ class TaskTuiApp(App):
             table.set_row_style(index, style)
 
     def _update_projects(self) -> None:
+        log.debug("Updating projects")
         projects = self.query_one(ProjectSummary)
         projects.refresh_from_tasks(task_cli.export_tasks("all"))
 
@@ -244,6 +245,8 @@ class TaskTuiApp(App):
             current_index = 0
 
         new_tab_id = tab_ids[(current_index + direction) % len(tab_ids)]
+        if new_tab_id == "projects":
+            self._update_projects()
         tabs.active = new_tab_id
         self._focus_tab_content(new_tab_id)
 
@@ -268,7 +271,6 @@ class TaskTuiApp(App):
         self.tasks = TaskStore(tasks, self.config)
         self.headings = task_cli.get_report_columns(self.report)
         self._update_table()
-        self._update_projects()
 
         if event.select_task_id is not None:
             try:
