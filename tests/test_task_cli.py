@@ -94,3 +94,13 @@ def test_annotate_task_uses_task_cli(cli_with_spy: tuple[TaskCli, list[tuple[str
 
     assert calls[0] == ("show",)
     assert calls[1] == (str(task.uuid), "annotate", "note")
+
+
+def test_delete_task_uses_task_cli(cli_with_spy: tuple[TaskCli, list[tuple[str, ...]]]) -> None:
+    cli, calls = cli_with_spy
+    task = _make_task()
+
+    cli.delete_task(task)
+
+    assert calls[0] == ("show",)
+    assert calls[1] == ("rc.confirmation=off", "rc.recurrence.confirmation=no", str(task.id), "delete")
