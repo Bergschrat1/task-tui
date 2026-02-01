@@ -75,7 +75,9 @@ class TaskStore:
         ret = [t for t in self.tasks if t.id == id]
         if len(ret) > 1:
             raise TaskStoreError(f"Multiple tasks with the same ID: {id}")
-        return ret[0] if ret else None
+        if len(ret) == 0:
+            raise TaskStoreError(f"No task with this ID: {id}")
+        return ret[0]
 
     def _get_task_by_uuid(self, uuid: UUID) -> Task | None:
         ret = [t for t in self.tasks if t.uuid == uuid]

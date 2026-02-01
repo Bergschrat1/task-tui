@@ -106,6 +106,7 @@ class TaskCli:
             raise ValueError("Failed to get task id from new task")
 
         task_id = int(match.group(1))
+        log.debug("Added new task with id %d", task_id)
         return task_id
 
     def log_task(self, description: str) -> None:
