@@ -99,7 +99,7 @@ class TaskCli:
         confirmation = completed_process.stdout.strip()
         # TASKDATA override: ./test_data/
         # Created task 4.
-        task_id_pattern = r"Created task (\d+)\."
+        task_id_pattern = r"Created task (\d+)"
         match = re.search(task_id_pattern, confirmation)
         if match is None:
             log.error("Failed to get task id from new task")

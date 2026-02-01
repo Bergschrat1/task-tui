@@ -10,30 +10,38 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  checks:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        check: [format, lint, type-check, tests]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup uv with Python 3.14
+      - name: Setup uv with Python 3.13
         uses: astral-sh/setup-uv@v7
         with:
-          python-version: "3.14"
+          python-version: "3.13"
           enable-cache: true
 
       - name: Install dependencies
         run: uv sync --dev
 
       - name: Ensure formatting
+        if: matrix.check == 'format'
         run: uv run ruff format --check
 
       - name: Lint
+        if: matrix.check == 'lint'
         run: uv run ruff check src tests
 
       - name: Type check
+        if: matrix.check == 'type-check'
         run: uv run ty check
 
       - name: Run tests
+        if: matrix.check == 'tests'
         run: uv run pytest
