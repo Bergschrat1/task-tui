@@ -115,3 +115,10 @@ class TaskCli:
         if completed_process.returncode != 0:
             log.error("Failed to log task: %s", completed_process)
             raise ValueError(completed_process.stderr.strip())
+
+    def delete_task(self, task: Task) -> None:
+        log.info("Deleting task %s", task.id)
+        completed_process = self._run_task(str(task.id), "delete")
+        if completed_process.returncode != 0:
+            log.error("Failed to delete task: %s", completed_process)
+            raise ValueError(completed_process.stderr.strip())

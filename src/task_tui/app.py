@@ -173,6 +173,7 @@ class TaskTuiApp(App):
         Binding("q,escape", "quit", "Quit"),
         Binding("a", "add_task", "Add task"),
         Binding("d", "set_done", "Set done"),
+        Binding("delete", "delete_task", "Delete task"),
         Binding("m", "modify_task", "Modify task"),
         Binding("A", "annotate_task", "Annotate"),
         Binding("r", "refresh_tasks", "Refresh"),
@@ -326,6 +327,18 @@ class TaskTuiApp(App):
         current_task = self.tasks[table.cursor_row]
         confirm_done_scree = ConfirmDialog(f'Are you sure you want set task "{current_task.description}" ({current_task.id}) to done?')
         self.push_screen(confirm_done_scree, set_done)
+
+    def action_delete_task(self) -> None:
+        def delete_task(quit: bool | None) -> None:
+            task_cli.delete_task(current_task)
+            self.post_message(TasksChanged())
+
+        table = self.query_one(TaskReport)
+        if len(self.tasks) == 0:
+            return
+        current_task = self.tasks[table.cursor_row]
+        confirm_delete_screen = ConfirmDialog(f'Are you sure you want to delete task "{current_task.description}" ({current_task.id})?')
+        self.push_screen(confirm_delete_screen, delete_task)
 
     def action_toggle_start_stop(self) -> None:
         table = self.query_one(TaskReport)

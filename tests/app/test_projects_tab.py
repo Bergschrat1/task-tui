@@ -5,6 +5,7 @@ from datetime import datetime
 from uuid import UUID
 
 import pytest
+from textual.binding import Binding
 from textual.widgets import TabbedContent
 
 import task_tui.task_cli as task_cli_mod
@@ -150,3 +151,22 @@ def test_tab_navigation_shortcuts(monkeypatch: pytest.MonkeyPatch) -> None:
             assert tabbed_content.active == "tasks"
 
     asyncio.run(run_app())
+
+
+def test_delete_task_binding_registered(monkeypatch: pytest.MonkeyPatch) -> None:
+    class DummyTaskCli:
+        def __init__(self) -> None:
+            pass
+
+    monkeypatch.setattr(task_cli_mod, "TaskCli", DummyTaskCli)
+    if "task_tui.app" in sys.modules:
+        del sys.modules["task_tui.app"]
+    app_module = importlib.import_module("task_tui.app")
+
+    bindings = [binding for binding in app_module.TaskTuiApp.BINDINGS if isinstance(binding, Binding)]
+    delete_binding = next(
+        (binding for binding in bindings if binding.key == "delete" and binding.action == "delete_task"),
+        None,
+    )
+
+    assert delete_binding is not None
