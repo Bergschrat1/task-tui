@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum, auto
 from typing import Annotated
@@ -72,3 +73,10 @@ class Task(BaseModel):
 
     def __str__(self) -> str:
         return f'Task(id={self.id}, description="{self.description}, virtual_tags=[{",".join(self.virtual_tags)}]")'
+
+
+@dataclass(frozen=True)
+class ContextInfo:
+    name: str
+    read_filter: str
+    is_active: bool = False

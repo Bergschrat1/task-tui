@@ -10,11 +10,12 @@ from textual.binding import Binding
 from textual.containers import Grid
 from textual.coordinate import Coordinate
 from textual.events import Key
+from textual.message import Message
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Footer, Input, Label
 from textual.widgets.data_table import CursorType, RowKey
 
-from task_tui.data_models import Status, Task
+from task_tui.data_models import ContextInfo, Status, Task
 
 log = logging.getLogger(__name__)
 
@@ -233,3 +234,42 @@ class ProjectSummary(DataTable):
                 f"{aggregate.urgency:.2f}",
             )
         self.refresh()
+
+
+class ContextSelected(Message):
+    def __init__(self, context: ContextInfo) -> None:
+        super().__init__()
+        self.context = context
+
+
+class ContextSummary(DataTable):
+    BINDINGS = [
+        Binding("enter", "select_context", "Select context"),
+    ]
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.cursor_type = "row"
+        self.show_row_labels = False
+        self.zebra_stripes = True
+        self._contexts: list[ContextInfo] = []
+
+    def on_mount(self) -> None:
+        self.clear(columns=True)
+        self.add_columns("Context", "Filter")
+
+    def refresh_from_contexts(self, contexts: Iterable[ContextInfo]) -> None:
+        self._contexts = list(contexts)
+        self.clear(columns=False)
+        for context in self._contexts:
+            label = f"{context.name} *" if context.is_active else context.name
+            self.add_row(label, context.read_filter)
+        self.refresh()
+
+    def action_select_context(self) -> None:
+        if self.row_count == 0:
+            return
+        row_index = self.cursor_coordinate.row
+        if row_index < 0 or row_index >= len(self._contexts):
+            return
+        self.post_message(ContextSelected(self._contexts[row_index]))

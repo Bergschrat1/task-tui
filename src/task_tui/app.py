@@ -21,7 +21,7 @@ from task_tui.utils import (
     get_current_datetime,
     get_style_for_task,
 )
-from task_tui.widgets import ConfirmDialog, ProjectSummary, TaskReport, TextInput
+from task_tui.widgets import ConfirmDialog, ContextSelected, ContextSummary, ProjectSummary, TaskReport, TextInput
 
 log = logging.getLogger(__name__)
 
@@ -197,6 +197,8 @@ class TaskTuiApp(App):
                 yield Vertical(TaskReport(), Footer())
             with TabPane("Projects", id="projects"):
                 yield ProjectSummary()
+            with TabPane("Contexts", id="contexts"):
+                yield ContextSummary()
 
     def _clean_empty_columns(
         self,
@@ -250,12 +252,17 @@ class TaskTuiApp(App):
         new_tab_id = tab_ids[(current_index + direction) % len(tab_ids)]
         if new_tab_id == "projects":
             self._update_projects()
+        if new_tab_id == "contexts":
+            self._update_contexts()
         tabs.active = new_tab_id
         self._focus_tab_content(new_tab_id)
 
     def _focus_tab_content(self, tab_id: str) -> None:
         if tab_id == "projects":
             self.query_one(ProjectSummary).focus()
+            return
+        if tab_id == "contexts":
+            self.query_one(ContextSummary).focus()
             return
 
         self.query_one(TaskReport).focus()
@@ -296,6 +303,18 @@ class TaskTuiApp(App):
         log.debug("Mounting app")
         self.post_message(TasksChanged())
         self._focus_tab_content("tasks")
+
+    def _update_contexts(self) -> None:
+        log.debug("Updating contexts")
+        context_summary = self.query_one(ContextSummary)
+        context_summary.refresh_from_contexts(task_cli.list_contexts())
+
+    @on(ContextSelected)
+    def _handle_context_selected(self, event: ContextSelected) -> None:
+        task_cli.set_context(event.context.name)
+        self._update_contexts()
+        self.post_message(TasksChanged())
+        self.notify(f'Context set to "{event.context.name}"')
 
     def action_add_task(self) -> None:
         def add_task(description: str) -> None:
