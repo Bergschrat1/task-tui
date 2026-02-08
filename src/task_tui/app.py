@@ -173,14 +173,6 @@ class TaskTuiApp(App):
     config: Config
     BINDINGS = [
         Binding("q,escape", "quit", "Quit"),
-        Binding("a", "add_task", "Add task"),
-        Binding("d", "set_done", "Set done"),
-        Binding("delete", "delete_task", "Delete task"),
-        Binding("m", "modify_task", "Modify task"),
-        Binding("A", "annotate_task", "Annotate"),
-        Binding("r", "refresh_tasks", "Refresh"),
-        Binding("s", "toggle_start_stop", "Start/stop"),
-        Binding("l", "log_task", "Log task"),
         Binding("[", "activate_previous_tab", "Prev tab"),
         Binding("]", "activate_next_tab", "Next tab"),
     ]
@@ -196,9 +188,9 @@ class TaskTuiApp(App):
             with TabPane("Tasks", id="tasks"):
                 yield Vertical(TaskReport(), Footer())
             with TabPane("Projects", id="projects"):
-                yield ProjectSummary()
+                yield Vertical(ProjectSummary(), Footer())
             with TabPane("Contexts", id="contexts"):
-                yield ContextSummary()
+                yield Vertical(ContextSummary(), Footer())
 
     def _clean_empty_columns(
         self,
