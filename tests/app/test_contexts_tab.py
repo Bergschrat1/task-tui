@@ -68,7 +68,7 @@ def test_contexts_tab_updates_and_selects(monkeypatch: pytest.MonkeyPatch) -> No
 
     app = app_module.TaskTuiApp("next")
 
-    async def run_app() -> list[list[object]]:
+    async def run_app() -> tuple[list[list[object]], list[str]]:
         async with app.run_test() as pilot:
             await pilot.press("]")
             await pilot.press("]")
@@ -80,16 +80,31 @@ def test_contexts_tab_updates_and_selects(monkeypatch: pytest.MonkeyPatch) -> No
             context_summary = app.query_one(ContextSummary)
             rows = [context_summary.get_row_at(index) for index in range(context_summary.row_count)]
 
+            row_labels = []
+            for index in range(context_summary.row_count):
+                row_key = context_summary._row_locations.get_key(index)
+                row = context_summary.rows.get(row_key) if row_key is not None else None
+                row_labels.append(row.label.plain if row is not None and row.label is not None else "")
+
             await pilot.press("down")
+            await pilot.pause()
+
+            moved_row_labels = []
+            for index in range(context_summary.row_count):
+                row_key = context_summary._row_locations.get_key(index)
+                row = context_summary.rows.get(row_key) if row_key is not None else None
+                moved_row_labels.append(row.label.plain if row is not None and row.label is not None else "")
+
             await pilot.press("enter")
             await pilot.pause()
 
-            return rows
+            return rows, moved_row_labels
 
-    rows = asyncio.run(run_app())
+    rows, row_labels = asyncio.run(run_app())
 
     assert rows == [
         ["none *", ""],
         ["work", "project:Work"],
     ]
+    assert row_labels == [" ", "▶"]
     assert set_context_calls == ["work"]
