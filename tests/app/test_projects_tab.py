@@ -131,6 +131,7 @@ def test_tab_navigation_shortcuts(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(app_module.task_cli, "get_config", lambda: Config(""), raising=False)
     monkeypatch.setattr(app_module.task_cli, "export_tasks", lambda report: [], raising=False)
     monkeypatch.setattr(app_module.task_cli, "get_report_columns", lambda report: [("id", "ID"), ("description", "Description")], raising=False)
+    monkeypatch.setattr(app_module.task_cli, "list_contexts", lambda: [], raising=False)
 
     app = app_module.TaskTuiApp("next")
 
@@ -142,6 +143,14 @@ def test_tab_navigation_shortcuts(monkeypatch: pytest.MonkeyPatch) -> None:
             assert tabbed_content.active == "tasks"
 
             await pilot.press("]")
+            await pilot.pause()
+            assert tabbed_content.active == "projects"
+
+            await pilot.press("]")
+            await pilot.pause()
+            assert tabbed_content.active == "contexts"
+
+            await pilot.press("[")
             await pilot.pause()
             assert tabbed_content.active == "projects"
 

@@ -1,9 +1,10 @@
 import logging
 import re
+import shlex
 import subprocess
 
 from task_tui.config import Config
-from task_tui.data_models import Task
+from task_tui.data_models import ContextInfo, Task
 
 log = logging.getLogger(__name__)
 
@@ -24,8 +25,66 @@ class TaskCli:
         log.debug("Running `%s`", " ".join(command))
         return subprocess.run(command, text=True, capture_output=True)
 
+    def _get_config_value(self, config_key: str) -> str:
+        completed_process = self._run_task("_get", config_key)
+        return completed_process.stdout.strip()
+
+    def _get_context_filter(self, context_name: str) -> str:
+        context_filter = self._get_config_value(f"rc.context.{context_name}.read")
+        if context_filter == "":
+            context_filter = self._get_config_value(f"rc.context.{context_name}")
+        return context_filter
+
+    def _parse_context_list(self, context_output: str) -> list[str]:
+        contexts: list[str] = []
+        for raw_line in context_output.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            if line not in contexts:
+                contexts.append(line)
+        return contexts
+
+    def get_context(self) -> ContextInfo | None:
+        context_name = self._get_config_value("rc.context")
+        if context_name in {"", "none"}:
+            return None
+        context_filter = self._get_context_filter(context_name)
+        return ContextInfo(name=context_name, read_filter=context_filter, is_active=True)
+
+    def list_contexts(self) -> list[ContextInfo]:
+        active_context = self._get_config_value("rc.context")
+        if active_context == "none":
+            active_context = ""
+        context_output = self._run_task("_context").stdout
+        context_names = self._parse_context_list(context_output)
+        contexts: list[ContextInfo] = []
+        contexts.append(ContextInfo(name="none", read_filter="", is_active=active_context == ""))
+        for context_name in context_names:
+            if context_name == "none":
+                continue
+            context_filter = self._get_context_filter(context_name)
+            contexts.append(
+                ContextInfo(
+                    name=context_name,
+                    read_filter=context_filter,
+                    is_active=context_name == active_context,
+                )
+            )
+        return contexts
+
+    def set_context(self, context_name: str | None) -> None:
+        if context_name is None or context_name == "none":
+            self._run_task("context", "none")
+        else:
+            self._run_task("context", context_name)
+
     def export_tasks(self, report: str | None = None) -> list[Task]:
-        command = ["rc.json.array=0", "rc.defaultheight=0", "export"]
+        command = ["rc.json.array=0", "rc.defaultheight=0"]
+        context = self.get_context()
+        if context and context.read_filter:
+            command.extend(shlex.split(context.read_filter))
+        command.append("export")
         if report:
             command.append(report)
         completed_process = self._run_task(*command)

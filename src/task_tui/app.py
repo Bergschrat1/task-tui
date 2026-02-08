@@ -21,7 +21,7 @@ from task_tui.utils import (
     get_current_datetime,
     get_style_for_task,
 )
-from task_tui.widgets import ConfirmDialog, ProjectSummary, TaskReport, TextInput
+from task_tui.widgets import ConfirmDialog, ContextSelected, ContextSummary, ProjectSummary, TaskReport, TextInput
 
 log = logging.getLogger(__name__)
 
@@ -173,14 +173,6 @@ class TaskTuiApp(App):
     config: Config
     BINDINGS = [
         Binding("q,escape", "quit", "Quit"),
-        Binding("a", "add_task", "Add task"),
-        Binding("d", "set_done", "Set done"),
-        Binding("delete", "delete_task", "Delete task"),
-        Binding("m", "modify_task", "Modify task"),
-        Binding("A", "annotate_task", "Annotate"),
-        Binding("r", "refresh_tasks", "Refresh"),
-        Binding("s", "toggle_start_stop", "Start/stop"),
-        Binding("l", "log_task", "Log task"),
         Binding("[", "activate_previous_tab", "Prev tab"),
         Binding("]", "activate_next_tab", "Next tab"),
     ]
@@ -196,7 +188,9 @@ class TaskTuiApp(App):
             with TabPane("Tasks", id="tasks"):
                 yield Vertical(TaskReport(), Footer())
             with TabPane("Projects", id="projects"):
-                yield ProjectSummary()
+                yield Vertical(ProjectSummary(), Footer())
+            with TabPane("Contexts", id="contexts"):
+                yield Vertical(ContextSummary(), Footer())
 
     def _clean_empty_columns(
         self,
@@ -216,7 +210,7 @@ class TaskTuiApp(App):
 
     def _update_table(self) -> None:
         log.debug("Updating table")
-        table = self.query_one(TaskReport)
+        table: TaskReport = self.query_one(TaskReport)
         table.clear(columns=True)
         table.clear_row_styles()
         columns = [h[0].split(".")[0] for h in self.headings]
@@ -237,7 +231,7 @@ class TaskTuiApp(App):
         projects.refresh_from_tasks(task_cli.export_tasks("all"))
 
     def _cycle_tabs(self, direction: int) -> None:
-        tabs = self.query_one(TabbedContent)
+        tabs: TabbedContent = self.query_one(TabbedContent)
         tab_ids = [pane.id for pane in tabs.query(TabPane) if pane.id is not None]
         if len(tab_ids) == 0:
             return
@@ -250,12 +244,17 @@ class TaskTuiApp(App):
         new_tab_id = tab_ids[(current_index + direction) % len(tab_ids)]
         if new_tab_id == "projects":
             self._update_projects()
+        if new_tab_id == "contexts":
+            self._update_contexts()
         tabs.active = new_tab_id
         self._focus_tab_content(new_tab_id)
 
     def _focus_tab_content(self, tab_id: str) -> None:
         if tab_id == "projects":
             self.query_one(ProjectSummary).focus()
+            return
+        if tab_id == "contexts":
+            self.query_one(ContextSummary).focus()
             return
 
         self.query_one(TaskReport).focus()
@@ -266,7 +265,7 @@ class TaskTuiApp(App):
 
         NOTE: Updating the task will trigger a table update.
         """
-        table = self.query_one(TaskReport)
+        table: TaskReport = self.query_one(TaskReport)
         previous_row: int = table.cursor_row
         log.debug("Updating tasks")
         log.debug("Previous row: %d, Previous number of tasks: %d", previous_row, len(self.tasks))
@@ -297,6 +296,18 @@ class TaskTuiApp(App):
         self.post_message(TasksChanged())
         self._focus_tab_content("tasks")
 
+    def _update_contexts(self) -> None:
+        log.debug("Updating contexts")
+        context_summary: ContextSummary = self.query_one(ContextSummary)
+        context_summary.refresh_from_contexts(task_cli.list_contexts())
+
+    @on(ContextSelected)
+    def _handle_context_selected(self, event: ContextSelected) -> None:
+        task_cli.set_context(event.context.name)
+        self._update_contexts()
+        self.post_message(TasksChanged())
+        self.notify(f'Context set to "{event.context.name}"')
+
     def action_add_task(self) -> None:
         def add_task(description: str) -> None:
             try:
@@ -325,7 +336,7 @@ class TaskTuiApp(App):
             task_cli.set_task_done(current_task)
             self.post_message(TasksChanged())
 
-        table = self.query_one(TaskReport)
+        table: TaskReport = self.query_one(TaskReport)
         current_task = self.tasks[table.cursor_row]
         confirm_done_scree = ConfirmDialog(f'Are you sure you want set task "{current_task.description}" ({current_task.id}) to done?')
         self.push_screen(confirm_done_scree, set_done)
@@ -335,7 +346,7 @@ class TaskTuiApp(App):
             task_cli.delete_task(current_task)
             self.post_message(TasksChanged())
 
-        table = self.query_one(TaskReport)
+        table: TaskReport = self.query_one(TaskReport)
         if len(self.tasks) == 0:
             return
         current_task = self.tasks[table.cursor_row]
@@ -343,7 +354,7 @@ class TaskTuiApp(App):
         self.push_screen(confirm_delete_screen, delete_task)
 
     def action_toggle_start_stop(self) -> None:
-        table = self.query_one(TaskReport)
+        table: TaskReport = self.query_one(TaskReport)
         if len(self.tasks) == 0:
             return
         current_task = self.tasks[table.cursor_row]
@@ -363,7 +374,7 @@ class TaskTuiApp(App):
         self._cycle_tabs(1)
 
     def action_modify_task(self) -> None:
-        table = self.query_one(TaskReport)
+        table: TaskReport = self.query_one(TaskReport)
         if len(self.tasks) == 0:
             return
 
@@ -386,7 +397,7 @@ class TaskTuiApp(App):
         self.push_screen(modify_task_screen, modify_task)
 
     def action_annotate_task(self) -> None:
-        table = self.query_one(TaskReport)
+        table: TaskReport = self.query_one(TaskReport)
         if len(self.tasks) == 0:
             return
         current_task = self.tasks[table.cursor_row]

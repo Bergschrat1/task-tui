@@ -10,11 +10,12 @@ from textual.binding import Binding
 from textual.containers import Grid
 from textual.coordinate import Coordinate
 from textual.events import Key
+from textual.message import Message
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Footer, Input, Label
 from textual.widgets.data_table import CursorType, RowKey
 
-from task_tui.data_models import Status, Task
+from task_tui.data_models import ContextInfo, Status, Task
 
 log = logging.getLogger(__name__)
 
@@ -92,21 +93,17 @@ class TextInput(ModalScreen):
         self.app.pop_screen()
 
 
-class TaskReport(DataTable):
-    BINDINGS = [
-        Binding("j", "cursor_down", "Cursor Down", show=False),
-        Binding("k", "cursor_up", "Cursor Up", show=False),
-        Binding("ctrl+d", "page_down", "Page Down", show=False),
-        Binding("ctrl+u", "page_up", "Page Up", show=False),
-        Binding("G", "page_up", "Page Up", show=False),
-    ]
+class RowMarkerTable(DataTable):
+    """DataTable variant that shows a single-row marker instead of cell highlights.
+
+    Used by tables that want a consistent, cursor-driven row indicator (▶) so
+    selection remains visible while avoiding Textual's default cell highlight.
+    """
 
     def __init__(self) -> None:
         super().__init__()
-        self._row_style_overrides: dict[int, Style] = {}
         self.show_row_labels = True
         self.cursor_type = "row"
-        self.zebra_stripes = True
         self._marker_row_key: RowKey | None = None
         self.cursor_background_priority = "renderable"
         self.cursor_foreground_priority = "renderable"
@@ -156,24 +153,6 @@ class TaskReport(DataTable):
         self._apply_marker_update(new_coordinate.row if self.row_count else None)
         super().watch_cursor_coordinate(old_coordinate, new_coordinate)
 
-    def on_mount(self) -> None:
-        log.debug("TaskReport mounted")
-        self.cursor_type = "row"
-        self.zebra_stripes = True
-        self.app._update_table()
-
-    def set_row_style(self, index: int, style: Style) -> None:
-        self._row_style_overrides[index] = style
-        self.refresh_row(index)
-
-    def clear_row_styles(self) -> None:
-        self._row_style_overrides.clear()
-
-    def _get_row_style(self, row_index: int, base_style: Style) -> Style:
-        if row_index in self._row_style_overrides:
-            return self._row_style_overrides[row_index]
-        return super()._get_row_style(row_index, base_style)
-
     def sync_cursor_marker(self) -> None:
         if self.row_count == 0:
             self._marker_row_key = None
@@ -188,6 +167,71 @@ class TaskReport(DataTable):
     ) -> bool:
         # overwrite the _should_highlight function to always return false. We only want to use the marker
         return False
+
+
+class TaskReport(RowMarkerTable):
+    BINDINGS = [
+        Binding("j", "cursor_down", "Cursor Down", show=False),
+        Binding("k", "cursor_up", "Cursor Up", show=False),
+        Binding("ctrl+d", "page_down", "Page Down", show=False),
+        Binding("ctrl+u", "page_up", "Page Up", show=False),
+        Binding("G", "page_up", "Page Up", show=False),
+        Binding("a", "add_task", "Add task"),
+        Binding("d", "set_done", "Set done"),
+        Binding("delete", "delete_task", "Delete task"),
+        Binding("m", "modify_task", "Modify task"),
+        Binding("A", "annotate_task", "Annotate"),
+        Binding("r", "refresh_tasks", "Refresh"),
+        Binding("s", "toggle_start_stop", "Start/stop"),
+        Binding("l", "log_task", "Log task"),
+    ]
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._row_style_overrides: dict[int, Style] = {}
+        self.zebra_stripes = True
+
+    def on_mount(self) -> None:
+        log.debug("TaskReport mounted")
+        self.cursor_type = "row"
+        self.zebra_stripes = True
+        self.app._update_table()
+
+    def action_add_task(self) -> None:
+        self.app.action_add_task()
+
+    def action_set_done(self) -> None:
+        self.app.action_set_done()
+
+    def action_delete_task(self) -> None:
+        self.app.action_delete_task()
+
+    def action_modify_task(self) -> None:
+        self.app.action_modify_task()
+
+    def action_annotate_task(self) -> None:
+        self.app.action_annotate_task()
+
+    def action_refresh_tasks(self) -> None:
+        self.app.action_refresh_tasks()
+
+    def action_toggle_start_stop(self) -> None:
+        self.app.action_toggle_start_stop()
+
+    def action_log_task(self) -> None:
+        self.app.action_log_task()
+
+    def set_row_style(self, index: int, style: Style) -> None:
+        self._row_style_overrides[index] = style
+        self.refresh_row(index)
+
+    def clear_row_styles(self) -> None:
+        self._row_style_overrides.clear()
+
+    def _get_row_style(self, row_index: int, base_style: Style) -> Style:
+        if row_index in self._row_style_overrides:
+            return self._row_style_overrides[row_index]
+        return super()._get_row_style(row_index, base_style)
 
 
 @dataclass
@@ -233,3 +277,43 @@ class ProjectSummary(DataTable):
                 f"{aggregate.urgency:.2f}",
             )
         self.refresh()
+
+
+class ContextSelected(Message):
+    def __init__(self, context: ContextInfo) -> None:
+        super().__init__()
+        self.context = context
+
+
+class ContextSummary(RowMarkerTable):
+    BINDINGS = [
+        Binding("j", "cursor_down", "Cursor Down", show=False),
+        Binding("k", "cursor_up", "Cursor Up", show=False),
+        Binding("enter", "select_context", "Select context"),
+    ]
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.zebra_stripes = True
+        self._contexts: list[ContextInfo] = []
+
+    def on_mount(self) -> None:
+        self.clear(columns=True)
+        self.add_columns("Context", "Filter")
+
+    def refresh_from_contexts(self, contexts: Iterable[ContextInfo]) -> None:
+        self._contexts = list(contexts)
+        self.clear(columns=False)
+        for context in self._contexts:
+            label = f"{context.name} *" if context.is_active else context.name
+            self.add_row(label, context.read_filter)
+        self.sync_cursor_marker()
+        self.refresh()
+
+    def action_select_context(self) -> None:
+        if self.row_count == 0:
+            return
+        row_index = self.cursor_coordinate.row
+        if row_index < 0 or row_index >= len(self._contexts):
+            return
+        self.post_message(ContextSelected(self._contexts[row_index]))
