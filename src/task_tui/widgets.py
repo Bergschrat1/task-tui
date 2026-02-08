@@ -307,6 +307,7 @@ class ContextSummary(RowMarkerTable):
         for context in self._contexts:
             label = f"{context.name} *" if context.is_active else context.name
             self.add_row(label, context.read_filter)
+        self.sync_cursor_marker()
         self.refresh()
 
     def action_select_context(self) -> None:
