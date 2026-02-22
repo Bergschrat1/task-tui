@@ -4,6 +4,7 @@
 Core application code resides in `src/task_tui/`, with `app.py` wiring the Textual interface, `task_cli.py` providing the Taskwarrior bridge, and supporting modules (`config.py`, `data_models.py`, `widgets.py`, `utils.py`) handling configuration, schema validation, and reusable views. Entry points for Typer live in `main.py`. Tests are located in `tests/`, and fixtures that mirror a Taskwarrior workspace are under `test_data/`. Runtime logs land in `task-tui.log`; check this file first when debugging UI issues.
 
 ## Build, Test, and Development Commands
+- `nix develop`: enter the nix shell for development
 - `uv run task_tui`: launch the interactive TUI using the Typer entry point.
 - `uv run ty check`: Type checking
 - `uv run python -m task_tui.main health`: quick smoke check that the CLI bootstraps correctly.
