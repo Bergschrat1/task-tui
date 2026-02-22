@@ -182,3 +182,16 @@ class TaskCli:
         if completed_process.returncode != 0:
             log.error("Failed to delete task: %s", completed_process)
             raise ValueError(completed_process.stderr.strip())
+
+    def edit_task(self, task: Task) -> None:
+        """Open the task in the user's $EDITOR via `task <uuid> edit`.
+
+        Must be called while the TUI is suspended so the editor can take over the terminal.
+        """
+        log.info("Editing task %s", task.id)
+        command = [self.base_command, str(task.uuid), "edit"]
+        log.debug("Running `%s`", " ".join(command))
+        completed_process = subprocess.run(command)
+        if completed_process.returncode != 0:
+            error_msg = f"task edit exited with code {completed_process.returncode}"
+            raise ValueError(error_msg)

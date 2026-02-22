@@ -431,3 +431,15 @@ class TaskTuiApp(App):
 
         log_task_screen = TextInput("Enter task description")
         self.push_screen(log_task_screen, log_task)
+
+    def action_edit_task(self) -> None:
+        table: TaskReport = self.query_one(TaskReport)
+        if len(self.tasks) == 0:
+            return
+        current_task = self.tasks[table.cursor_row]
+        try:
+            with self.suspend():
+                task_cli.edit_task(current_task)
+                self.post_message(TasksChanged(select_task_id=current_task.id))
+        except ValueError as e:
+            self.notify(f"Failed to edit task:\n{str(e)}", severity="error", markup=True)
