@@ -440,6 +440,6 @@ class TaskTuiApp(App):
         try:
             with self.suspend():
                 task_cli.edit_task(current_task)
+                self.post_message(TasksChanged(select_task_id=current_task.id))
         except ValueError as e:
             self.notify(f"Failed to edit task:\n{str(e)}", severity="error", markup=True)
-        self.post_message(TasksChanged(select_task_id=current_task.id))
