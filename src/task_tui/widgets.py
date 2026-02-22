@@ -184,6 +184,7 @@ class TaskReport(RowMarkerTable):
         Binding("r", "refresh_tasks", "Refresh"),
         Binding("s", "toggle_start_stop", "Start/stop"),
         Binding("l", "log_task", "Log task"),
+        Binding("e", "edit_task", "Edit task"),
     ]
 
     def __init__(self) -> None:
@@ -220,6 +221,9 @@ class TaskReport(RowMarkerTable):
 
     def action_log_task(self) -> None:
         self.app.action_log_task()
+
+    async def action_edit_task(self) -> None:
+        await self.app.action_edit_task()
 
     def set_row_style(self, index: int, style: Style) -> None:
         self._row_style_overrides[index] = style
