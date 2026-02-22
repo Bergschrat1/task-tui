@@ -437,11 +437,11 @@ class TaskTuiApp(App):
         if len(self.tasks) == 0:
             return
         current_task = self.tasks[table.cursor_row]
-        edit_error: ValueError | None = None
+        edit_error: Exception | None = None
         with self.suspend():
             try:
                 task_cli.edit_task(current_task)
-            except ValueError as e:
+            except Exception as e:
                 edit_error = e
         if edit_error is not None:
             self.notify(f"Failed to edit task:\n{str(edit_error)}", severity="error", markup=True)

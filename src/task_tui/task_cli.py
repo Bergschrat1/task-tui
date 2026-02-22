@@ -191,7 +191,12 @@ class TaskCli:
         log.info("Editing task %s", task.id)
         command = [self.base_command, str(task.uuid), "edit"]
         log.debug("Running `%s`", " ".join(command))
-        completed_process = subprocess.run(command)
+        # Capture task's own stdout/stderr so error messages can be surfaced in the UI.
+        # The interactive editor writes its display via /dev/tty and is unaffected.
+        completed_process = subprocess.run(command, capture_output=True, text=True)
+        log.debug("task edit exit code: %d stdout: %r stderr: %r", completed_process.returncode, completed_process.stdout, completed_process.stderr)
         if completed_process.returncode != 0:
-            log.error("Failed to edit task %s (exit code %d)", task.id, completed_process.returncode)
-            raise ValueError(f"task edit exited with code {completed_process.returncode}")
+            output = "\n".join(filter(None, [completed_process.stdout.strip(), completed_process.stderr.strip()]))
+            error_msg = output or f"task edit exited with code {completed_process.returncode}"
+            log.error("Failed to edit task %s: %s", task.id, error_msg)
+            raise ValueError(error_msg)
