@@ -191,8 +191,7 @@ class TaskCli:
         log.info("Editing task %s", task.id)
         command = [self.base_command, str(task.uuid), "edit"]
         log.debug("Running `%s`", " ".join(command))
-        completed_process = subprocess.run(command, capture_output=True, text=True)
-        if completed_process.returncode != 0 or "Editing failed" in completed_process.stdout:
-            output = "\n".join(filter(None, [completed_process.stdout.strip(), completed_process.stderr.strip()]))
-            error_msg = output or f"task edit exited with code {completed_process.returncode}"
+        completed_process = subprocess.run(command)
+        if completed_process.returncode != 0:
+            error_msg = f"task edit exited with code {completed_process.returncode}"
             raise ValueError(error_msg)
