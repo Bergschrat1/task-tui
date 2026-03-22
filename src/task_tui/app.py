@@ -81,7 +81,7 @@ class TaskStore:
             raise TaskStoreError(f"Multiple tasks with the same UUID: {uuid}")
         return ret[0] if ret else None
 
-    def _get_task_by_id(self, id: int) -> Task | None:
+    def _get_task_by_id(self, id: int) -> Task:
         ret = [t for t in self.tasks if t.id == id]
         if len(ret) > 1:
             raise TaskStoreError(f"Multiple tasks with the same ID: {id}")
@@ -319,7 +319,9 @@ class TaskTuiApp(App):
         self.notify(f'Context set to "{event.context.name}"')
 
     def action_add_task(self) -> None:
-        def add_task(description: str) -> None:
+        def add_task(description: str | None) -> None:
+            if description is None:
+                return
             try:
                 new_task_id = task_cli.add_task(description)
             except ValueError as e:
@@ -330,7 +332,7 @@ class TaskTuiApp(App):
         add_task_screen = TextInput("Enter task description")
         self.push_screen(add_task_screen, add_task)
 
-    def action_quit(self) -> None:
+    async def action_quit(self) -> None:
         # confirm_quit_sqreen = ConfirmDialog("Are you sure you want to quit?")
         # self.push_screen(confirm_quit_sqreen, self.exit)
         log.debug("Quitting app")
@@ -412,8 +414,8 @@ class TaskTuiApp(App):
             return
         current_task = self.tasks[table.cursor_row]
 
-        def annotate_task(annotation: str) -> None:
-            if annotation.strip() == "":
+        def annotate_task(annotation: str | None) -> None:
+            if annotation is None or annotation.strip() == "":
                 return
 
             try:
@@ -429,7 +431,9 @@ class TaskTuiApp(App):
         self.push_screen(annotation_screen, annotate_task)
 
     def action_log_task(self) -> None:
-        def log_task(description: str) -> None:
+        def log_task(description: str | None) -> None:
+            if description is None:
+                return
             try:
                 task_cli.log_task(description)
             except ValueError as e:

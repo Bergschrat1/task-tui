@@ -1,5 +1,5 @@
 from typing import cast
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import pytest
 from rich.color import Color
@@ -44,13 +44,13 @@ class TestParseColorConfig:
                 )
             )
         expected = [
-            ("blue on red"),
-            ("on red"),
-            ("red"),
-            ("green on gray12"),
-            ("blue"),
+            call("blue on red"),
+            call("on red"),
+            call("red"),
+            call("green on gray12"),
+            call("blue"),
         ]
-        mock.call_args_list = expected
+        assert mock.call_args_list == expected
 
     def test_duplicate_values_are_overwritten(self) -> None:
         styles = Config._parse_color_config(

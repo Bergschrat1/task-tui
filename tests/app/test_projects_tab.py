@@ -26,8 +26,8 @@ def make_task(
     return Task(
         id=task_id,
         description=description,
-        entry=timestamp.isoformat(),
-        modified=timestamp.isoformat(),
+        entry=timestamp,
+        modified=timestamp,
         due=None,
         start=None,
         scheduled=None,

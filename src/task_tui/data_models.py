@@ -6,7 +6,14 @@ from uuid import UUID
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict
 
-IsoDateTime = Annotated[datetime, BeforeValidator(datetime.fromisoformat)]
+
+def _parse_iso_datetime(value: datetime | str) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    return datetime.fromisoformat(value)
+
+
+IsoDateTime = Annotated[datetime, BeforeValidator(_parse_iso_datetime)]
 
 
 class VirtualTag(StrEnum):

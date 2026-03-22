@@ -1,7 +1,7 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable, cast
 
 from rich.style import Style
 from rich.text import Text
@@ -18,6 +18,9 @@ from textual.widgets.data_table import CursorType, RowKey
 from task_tui.data_models import ContextInfo, Status, Task
 from task_tui.utils import format_vague_datetime, get_current_datetime
 
+if TYPE_CHECKING:
+    from task_tui.app import TaskTuiApp
+
 log = logging.getLogger(__name__)
 
 
@@ -32,7 +35,7 @@ class MouseOnlyButton(Button):
         pass
 
 
-class ConfirmDialog(ModalScreen):
+class ConfirmDialog(ModalScreen[bool]):
     """Screen with a dialog to confirm an action."""
 
     BINDINGS = [
@@ -66,7 +69,7 @@ class BubblingEnterInput(Input):
             event.prevent_default()
 
 
-class TextInput(ModalScreen):
+class TextInput(ModalScreen[str]):
     prompt: str
     BINDINGS = [
         Binding("escape", "cancel", "Cancel"),
@@ -86,7 +89,7 @@ class TextInput(ModalScreen):
         )
 
     def action_submit(self) -> None:
-        input_text = self.query_one("#input").value
+        input_text = self.query_one("#input", Input).value
         log.debug('Submitted input: "%s"', input_text)
         self.dismiss(input_text)
 
@@ -194,41 +197,45 @@ class TaskReport(RowMarkerTable):
         self._row_style_overrides: dict[int, Style] = {}
         self.zebra_stripes = True
 
+    @property
+    def task_app(self) -> "TaskTuiApp":
+        return cast("TaskTuiApp", self.app)
+
     def on_mount(self) -> None:
         log.debug("TaskReport mounted")
         self.cursor_type = "row"
         self.zebra_stripes = True
-        self.app._update_table()
+        self.task_app._update_table()
 
     def action_add_task(self) -> None:
-        self.app.action_add_task()
+        self.task_app.action_add_task()
 
     def action_set_done(self) -> None:
-        self.app.action_set_done()
+        self.task_app.action_set_done()
 
     def action_delete_task(self) -> None:
-        self.app.action_delete_task()
+        self.task_app.action_delete_task()
 
     def action_modify_task(self) -> None:
-        self.app.action_modify_task()
+        self.task_app.action_modify_task()
 
     def action_annotate_task(self) -> None:
-        self.app.action_annotate_task()
+        self.task_app.action_annotate_task()
 
     def action_refresh_tasks(self) -> None:
-        self.app.action_refresh_tasks()
+        self.task_app.action_refresh_tasks()
 
     def action_toggle_start_stop(self) -> None:
-        self.app.action_toggle_start_stop()
+        self.task_app.action_toggle_start_stop()
 
     def action_log_task(self) -> None:
-        self.app.action_log_task()
+        self.task_app.action_log_task()
 
     def action_edit_task(self) -> None:
-        self.app.action_edit_task()
+        self.task_app.action_edit_task()
 
     def action_start_review(self) -> None:
-        self.app.action_start_review()
+        self.task_app.action_start_review()
 
     def set_row_style(self, index: int, style: Style) -> None:
         self._row_style_overrides[index] = style

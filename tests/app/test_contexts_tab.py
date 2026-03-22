@@ -18,8 +18,8 @@ def make_task(task_id: int) -> Task:
     return Task(
         id=task_id,
         description="Write docs",
-        entry=timestamp.isoformat(),
-        modified=timestamp.isoformat(),
+        entry=timestamp,
+        modified=timestamp,
         due=None,
         start=None,
         scheduled=None,
