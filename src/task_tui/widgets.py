@@ -1,7 +1,7 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable, cast
 
 from rich.style import Style
 from rich.text import Text
@@ -16,6 +16,10 @@ from textual.widgets import Button, DataTable, Footer, Input, Label
 from textual.widgets.data_table import CursorType, RowKey
 
 from task_tui.data_models import ContextInfo, Status, Task
+from task_tui.utils import format_vague_datetime, get_current_datetime
+
+if TYPE_CHECKING:
+    from task_tui.app import TaskTuiApp
 
 log = logging.getLogger(__name__)
 
@@ -31,7 +35,7 @@ class MouseOnlyButton(Button):
         pass
 
 
-class ConfirmDialog(ModalScreen):
+class ConfirmDialog(ModalScreen[bool]):
     """Screen with a dialog to confirm an action."""
 
     BINDINGS = [
@@ -65,7 +69,7 @@ class BubblingEnterInput(Input):
             event.prevent_default()
 
 
-class TextInput(ModalScreen):
+class TextInput(ModalScreen[str]):
     prompt: str
     BINDINGS = [
         Binding("escape", "cancel", "Cancel"),
@@ -85,7 +89,7 @@ class TextInput(ModalScreen):
         )
 
     def action_submit(self) -> None:
-        input_text = self.query_one("#input").value
+        input_text = self.query_one("#input", Input).value
         log.debug('Submitted input: "%s"', input_text)
         self.dismiss(input_text)
 
@@ -185,6 +189,7 @@ class TaskReport(RowMarkerTable):
         Binding("s", "toggle_start_stop", "Start/stop"),
         Binding("l", "log_task", "Log task"),
         Binding("e", "edit_task", "Edit task"),
+        Binding("R", "start_review", "Review tasks"),
     ]
 
     def __init__(self) -> None:
@@ -192,38 +197,45 @@ class TaskReport(RowMarkerTable):
         self._row_style_overrides: dict[int, Style] = {}
         self.zebra_stripes = True
 
+    @property
+    def task_app(self) -> "TaskTuiApp":
+        return cast("TaskTuiApp", self.app)
+
     def on_mount(self) -> None:
         log.debug("TaskReport mounted")
         self.cursor_type = "row"
         self.zebra_stripes = True
-        self.app._update_table()
+        self.task_app._update_table()
 
     def action_add_task(self) -> None:
-        self.app.action_add_task()
+        self.task_app.action_add_task()
 
     def action_set_done(self) -> None:
-        self.app.action_set_done()
+        self.task_app.action_set_done()
 
     def action_delete_task(self) -> None:
-        self.app.action_delete_task()
+        self.task_app.action_delete_task()
 
     def action_modify_task(self) -> None:
-        self.app.action_modify_task()
+        self.task_app.action_modify_task()
 
     def action_annotate_task(self) -> None:
-        self.app.action_annotate_task()
+        self.task_app.action_annotate_task()
 
     def action_refresh_tasks(self) -> None:
-        self.app.action_refresh_tasks()
+        self.task_app.action_refresh_tasks()
 
     def action_toggle_start_stop(self) -> None:
-        self.app.action_toggle_start_stop()
+        self.task_app.action_toggle_start_stop()
 
     def action_log_task(self) -> None:
-        self.app.action_log_task()
+        self.task_app.action_log_task()
 
     def action_edit_task(self) -> None:
-        self.app.action_edit_task()
+        self.task_app.action_edit_task()
+
+    def action_start_review(self) -> None:
+        self.task_app.action_start_review()
 
     def set_row_style(self, index: int, style: Style) -> None:
         self._row_style_overrides[index] = style
@@ -321,3 +333,136 @@ class ContextSummary(RowMarkerTable):
         if row_index < 0 or row_index >= len(self._contexts):
             return
         self.post_message(ContextSelected(self._contexts[row_index]))
+
+
+class ReviewTaskAction(Message):
+    """Message sent when a task action is performed in the review dialog."""
+
+    def __init__(self, action: str, task: Task) -> None:
+        super().__init__()
+        self.action = action
+        self.task = task
+
+
+class ReviewDialogClosed(Message):
+    """Message sent when the review dialog is closed."""
+
+    pass
+
+
+class ReviewDialog(ModalScreen):
+    """Modal screen for reviewing tasks one by one."""
+
+    BINDINGS = [
+        Binding("enter,r", "mark_reviewed", "Mark reviewed"),
+        Binding("s", "skip", "Skip"),
+        Binding("e", "edit", "Edit"),
+        Binding("m", "modify", "Modify"),
+        Binding("c", "complete", "Complete"),
+        Binding("d", "delete", "Delete"),
+        Binding("q,escape", "quit_review", "Quit"),
+    ]
+
+    def __init__(self, tasks: list[Task]) -> None:
+        super().__init__()
+        self._tasks = tasks
+        self._current_index = 0
+
+    def compose(self) -> ComposeResult:
+        yield Grid(
+            Label("", id="review-title"),
+            Label("", id="review-description"),
+            Label("", id="review-project"),
+            Label("", id="review-due"),
+            Label("", id="review-tags"),
+            Label("", id="review-urgency"),
+            Label("", id="review-reviewed"),
+            Label("", id="review-help"),
+            Footer(),
+            id="review-dialog",
+        )
+
+    def on_mount(self) -> None:
+        self._update_display()
+
+    def _update_display(self) -> None:
+        if self._current_index >= len(self._tasks):
+            self.dismiss()
+            return
+
+        task = self._tasks[self._current_index]
+        now = get_current_datetime()
+
+        self.query_one("#review-title", Label).update(f"Review Tasks ({self._current_index + 1}/{len(self._tasks)})")
+        self.query_one("#review-description", Label).update(f"Description: {task.description}")
+        self.query_one("#review-project", Label).update(f"Project: {task.project or '(none)'}")
+        self.query_one("#review-due", Label).update(f"Due: {format_vague_datetime(task.due, now) if task.due else '(none)'}")
+        self.query_one("#review-tags", Label).update(f"Tags: {', '.join(task.tags) if task.tags else '(none)'}")
+        self.query_one("#review-urgency", Label).update(f"Urgency: {task.urgency:.1f}")
+        reviewed_str = format_vague_datetime(task.reviewed, now) if task.reviewed else "(never)"
+        self.query_one("#review-reviewed", Label).update(f"Last Review: {reviewed_str}")
+        self.query_one("#review-help", Label).update("(r) Review  (s) Skip  (e) Edit  (m) Modify  (c) Complete  (d) Delete  (q) Quit")
+
+    @property
+    def current_task(self) -> Task:
+        return self._tasks[self._current_index]
+
+    def action_mark_reviewed(self) -> None:
+        log.debug("Marking task %s as reviewed", self.current_task.id)
+        self.post_message(ReviewTaskAction("reviewed", self.current_task))
+        self._advance()
+
+    def action_skip(self) -> None:
+        log.debug("Skipping task %s", self.current_task.id)
+        self._advance()
+
+    def action_edit(self) -> None:
+        log.debug("Editing task %s", self.current_task.id)
+        self.post_message(ReviewTaskAction("edit", self.current_task))
+
+    def action_modify(self) -> None:
+        log.debug("Modifying task %s", self.current_task.id)
+        self.post_message(ReviewTaskAction("modify", self.current_task))
+
+    def action_complete(self) -> None:
+        log.debug("Completing task %s", self.current_task.id)
+        self.post_message(ReviewTaskAction("complete", self.current_task))
+        self._remove_current_and_continue()
+
+    def action_delete(self) -> None:
+        log.debug("Deleting task %s", self.current_task.id)
+        self.post_message(ReviewTaskAction("delete", self.current_task))
+        self._remove_current_and_continue()
+
+    def action_quit_review(self) -> None:
+        log.debug("Quitting review")
+        self.post_message(ReviewDialogClosed())
+        self.dismiss()
+
+    def _advance(self) -> None:
+        self._current_index += 1
+        if self._current_index >= len(self._tasks):
+            self.post_message(ReviewDialogClosed())
+            self.dismiss()
+        else:
+            self._update_display()
+
+    def _remove_current_and_continue(self) -> None:
+        """Remove the current task from the list and continue to the next."""
+        self._tasks.pop(self._current_index)
+        if self._current_index >= len(self._tasks):
+            if len(self._tasks) == 0:
+                self.post_message(ReviewDialogClosed())
+                self.dismiss()
+            else:
+                self._current_index = len(self._tasks) - 1
+                self._update_display()
+        else:
+            self._update_display()
+
+    def refresh_current_task(self, updated_task: Task) -> None:
+        """Update the current task with refreshed data and redisplay."""
+        log.debug("Refreshing current task")
+        if self._current_index < len(self._tasks):
+            self._tasks[self._current_index] = updated_task
+            self._update_display()
