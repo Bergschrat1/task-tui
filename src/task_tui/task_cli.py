@@ -89,7 +89,7 @@ class TaskCli:
             command.append(report)
         completed_process = self._run_task(*command)
         export = completed_process.stdout
-        tasks = [Task.model_validate_json(t) for t in export.strip().split("\n")]
+        tasks = [Task.model_validate_json(t) for t in export.strip().splitlines()]
         log.debug(f"Got {len(tasks)} tasks from task_cli.")
         return tasks
 
@@ -195,3 +195,71 @@ class TaskCli:
         if completed_process.returncode != 0:
             error_msg = f"task edit exited with code {completed_process.returncode}"
             raise ValueError(error_msg)
+
+    def export_tasks_for_review(self, limit: int = 50) -> list[Task]:
+        """Export tasks that need review, sorted by reviewed date (oldest first).
+
+        Tasks need review if they have never been reviewed or were reviewed more than 6 days ago.
+        Only PENDING or WAITING tasks are included.
+        """
+        filter_expr = "( reviewed.none: or reviewed.before:now-6days ) and ( +PENDING or +WAITING )"
+        command = [
+            "rc.json.array=0",
+            "rc.defaultheight=0",
+            filter_expr,
+            "export",
+        ]
+        context = self.get_context()
+        if context and context.read_filter:
+            command.insert(2, context.read_filter)
+
+        completed_process = self._run_task(*command)
+        export = completed_process.stdout.strip()
+        if not export:
+            return []
+        tasks = [Task.model_validate_json(t) for t in export.split("\n")]
+
+        # Sort by reviewed date (None first), then by modified date
+        def sort_key(task: Task) -> tuple:
+            # Tasks with no reviewed date come first (use epoch 0)
+            reviewed_time = task.reviewed.timestamp() if task.reviewed else 0
+            modified_time = task.modified.timestamp() if task.modified else 0
+            return (reviewed_time, modified_time)
+
+        tasks.sort(key=sort_key)
+        log.debug(f"Got {len(tasks)} tasks for review from task_cli.")
+        return tasks[:limit]
+
+    def mark_task_reviewed(self, task: Task) -> None:
+        """Mark a task as reviewed by setting reviewed:now."""
+        log.info("Marking task %s as reviewed", task.id)
+        completed_process = self._run_task(
+            "rc.confirmation:no",
+            "rc.verbose:nothing",
+            str(task.uuid),
+            "modify",
+            "reviewed:now",
+        )
+        if completed_process.returncode != 0:
+            log.error("Failed to mark task as reviewed: %s", completed_process.stderr)
+            raise ValueError(completed_process.stderr.strip())
+
+    def has_reviewed_uda(self) -> bool:
+        """Check if the 'reviewed' UDA is configured."""
+        uda_type = self._get_config_value("rc.uda.reviewed.type")
+        return uda_type == "date"
+
+    def configure_reviewed_uda(self) -> None:
+        """Configure the 'reviewed' UDA as a date type."""
+        log.info("Configuring reviewed UDA")
+        self._run_task("rc.confirmation:no", "rc.verbose:nothing", "config", "uda.reviewed.type", "date")
+        self._run_task("rc.confirmation:no", "rc.verbose:nothing", "config", "uda.reviewed.label", "Reviewed")
+
+    def get_task_by_uuid(self, uuid: str) -> Task | None:
+        """Fetch a single task by UUID."""
+        command = ["rc.json.array=0", uuid, "export"]
+        completed_process = self._run_task(*command)
+        export = completed_process.stdout.strip()
+        if not export:
+            return None
+        return Task.model_validate_json(export)

@@ -68,6 +68,7 @@ class Task(BaseModel):
     tags: set[str] = set()
     depends: set[UUID] = set()
     virtual_tags: set[VirtualTag] = set()
+    reviewed: IsoDateTime | None = None
 
     model_config = ConfigDict(extra="allow")
 

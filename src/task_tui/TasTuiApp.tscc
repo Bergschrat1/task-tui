@@ -43,3 +43,35 @@ TextInput {
     width: 1fr;
     content-align: center middle;
 }
+
+ReviewDialog {
+    align: center middle;
+}
+
+#review-dialog {
+    grid-size: 1;
+    grid-gutter: 0 1;
+    padding: 1 2;
+    width: 70;
+    height: auto;
+    border: thick $background 80%;
+    background: $surface;
+}
+
+#review-title {
+    text-align: center;
+    text-style: bold;
+    padding-bottom: 1;
+    border-bottom: solid $primary;
+}
+
+#review-description {
+    padding-top: 1;
+}
+
+#review-help {
+    text-align: center;
+    padding-top: 1;
+    border-top: solid $primary;
+    color: $text-muted;
+}

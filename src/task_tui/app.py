@@ -21,7 +21,17 @@ from task_tui.utils import (
     get_current_datetime,
     get_style_for_task,
 )
-from task_tui.widgets import ConfirmDialog, ContextSelected, ContextSummary, ProjectSummary, TaskReport, TextInput
+from task_tui.widgets import (
+    ConfirmDialog,
+    ContextSelected,
+    ContextSummary,
+    ProjectSummary,
+    ReviewDialog,
+    ReviewDialogClosed,
+    ReviewTaskAction,
+    TaskReport,
+    TextInput,
+)
 
 log = logging.getLogger(__name__)
 
@@ -443,3 +453,96 @@ class TaskTuiApp(App):
                 self.post_message(TasksChanged(select_task_id=current_task.id))
         except ValueError as e:
             self.notify(f"Failed to edit task:\n{str(e)}", severity="error", markup=True)
+
+    def action_start_review(self) -> None:
+        if not task_cli.has_reviewed_uda():
+            self._prompt_configure_reviewed_uda()
+            return
+
+        self._launch_review_dialog()
+
+    def _prompt_configure_reviewed_uda(self) -> None:
+        def handle_confirm(confirmed: bool | None) -> None:
+            if confirmed:
+                task_cli.configure_reviewed_uda()
+                self.notify("Configured 'reviewed' UDA")
+                self._launch_review_dialog()
+
+        prompt = "Task-tui needs to define a 'reviewed' UDA of type 'date' for all tasks. Ok to proceed?"
+        self.push_screen(ConfirmDialog(prompt), handle_confirm)
+
+    def _launch_review_dialog(self) -> None:
+        tasks = task_cli.export_tasks_for_review()
+        if not tasks:
+            self.notify("No tasks to review")
+            return
+
+        review_screen = ReviewDialog(tasks)
+        self.push_screen(review_screen)
+
+    @on(ReviewTaskAction)
+    def _handle_review_task_action(self, event: ReviewTaskAction) -> None:
+        task = event.task
+        action = event.action
+
+        if action == "reviewed":
+            try:
+                task_cli.mark_task_reviewed(task)
+                self.notify(f'Task "{task.description}" marked as reviewed')
+            except ValueError as e:
+                self.notify(f"Failed to mark task as reviewed:\n{str(e)}", severity="error", markup=True)
+
+        elif action == "complete":
+            task_cli.set_task_done(task)
+            self.notify(f'Task "{task.description}" marked done')
+
+        elif action == "delete":
+            try:
+                task_cli.delete_task(task)
+                self.notify(f'Task "{task.description}" deleted')
+            except ValueError as e:
+                self.notify(f"Failed to delete task:\n{str(e)}", severity="error", markup=True)
+
+        elif action == "edit":
+            try:
+                with self.suspend():
+                    task_cli.edit_task(task)
+                    self.notify(f'Task "{task.description}" edited')
+                    # Refresh the task in the review dialog
+                    self._refresh_review_dialog_task(task)
+            except ValueError as e:
+                self.notify(f"Failed to edit task:\n{str(e)}", severity="error", markup=True)
+
+        elif action == "modify":
+
+            def modify_task_callback(modification: str | None) -> None:
+                if modification is None or modification.strip() == "":
+                    return
+                try:
+                    task_cli.modify_task(task, modification)
+                    self.notify(f'Task "{task.description}" modified')
+                    # Refresh the task in the review dialog
+                    self._refresh_review_dialog_task(task)
+                except ValueError as e:
+                    self.notify(f"Failed to modify task:\n{str(e)}", severity="error", markup=True)
+
+            modify_screen = TextInput("Enter modification")
+            self.push_screen(modify_screen, modify_task_callback)
+
+    def _refresh_review_dialog_task(self, task: Task) -> None:
+        """Refresh the current task in the review dialog after modifications."""
+        updated_task = task_cli.get_task_by_uuid(str(task.uuid))
+        if updated_task is None:
+            log.debug("Could not fetch updated task")
+            return
+        log.debug("Got updated task '%s'", updated_task.description)
+        # Find ReviewDialog in the screen stack (it's a screen, not a widget)
+        for screen in self.screen_stack:
+            if isinstance(screen, ReviewDialog):
+                screen.refresh_current_task(updated_task)
+                return
+        log.debug("ReviewDialog not found in screen stack")
+
+    @on(ReviewDialogClosed)
+    def _handle_review_dialog_closed(self, event: ReviewDialogClosed) -> None:
+        self.post_message(TasksChanged())
