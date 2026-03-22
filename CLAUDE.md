@@ -9,7 +9,7 @@ task-tui is a terminal user interface (TUI) for Taskwarrior built with Python 3.
 ## Development Commands
 
 ```bash
-nix develop              # Enter nix shell for development
+nix develop              # Enter nix shell for development. This Has to be run before any of the other commands because uv is only available in the nix shell
 uv run task_tui          # Launch the TUI (or just `task-tui` if installed)
 uv run task_tui health   # Smoke check that CLI bootstraps correctly
 uv run ruff check src tests  # Lint

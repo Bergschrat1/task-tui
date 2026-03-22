@@ -246,8 +246,12 @@ class TaskReport(RowMarkerTable):
 
     def _get_row_style(self, row_index: int, base_style: Style) -> Style:
         if row_index in self._row_style_overrides:
-            return self._row_style_overrides[row_index]
-        return super()._get_row_style(row_index, base_style)
+            style = self._row_style_overrides[row_index]
+        else:
+            style = super()._get_row_style(row_index, base_style)
+        if row_index == self.cursor_coordinate.row:
+            style = style + Style(underline=True)
+        return style
 
 
 @dataclass
