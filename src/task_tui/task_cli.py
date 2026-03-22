@@ -234,8 +234,8 @@ class TaskCli:
         """Mark a task as reviewed by setting reviewed:now."""
         log.info("Marking task %s as reviewed", task.id)
         completed_process = self._run_task(
-            "rc.confirmation:no",
-            "rc.verbose:nothing",
+            "rc.confirmation=no",
+            "rc.verbose=nothing",
             str(task.uuid),
             "modify",
             "reviewed:now",
@@ -252,8 +252,8 @@ class TaskCli:
     def configure_reviewed_uda(self) -> None:
         """Configure the 'reviewed' UDA as a date type."""
         log.info("Configuring reviewed UDA")
-        self._run_task("rc.confirmation:no", "rc.verbose:nothing", "config", "uda.reviewed.type", "date")
-        self._run_task("rc.confirmation:no", "rc.verbose:nothing", "config", "uda.reviewed.label", "Reviewed")
+        self._run_task("rc.confirmation=no", "rc.verbose=nothing", "config", "uda.reviewed.type", "date")
+        self._run_task("rc.confirmation=no", "rc.verbose=nothing", "config", "uda.reviewed.label", "Reviewed")
 
     def get_task_by_uuid(self, uuid: str) -> Task | None:
         """Fetch a single task by UUID."""
