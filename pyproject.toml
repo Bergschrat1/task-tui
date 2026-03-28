@@ -1,7 +1,7 @@
 [project]
 name = "task-tui"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.1.1"
+description = "Terminal UI for interacting with taskwarrior tasks"
 authors = [ ]
 requires-python = ">=3.13"
 dependencies = [
@@ -28,8 +28,6 @@ dev = [
     "ruff>=0.14.0",
     "ty>=0.0.1a22",
 ]
-
-
 
 
 [tool.ruff]
