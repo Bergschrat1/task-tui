@@ -1,4 +1,5 @@
 import logging
+from importlib.metadata import version as importlib_version
 
 import typer
 
@@ -30,7 +31,10 @@ def task_tui(report: str = DEFAULT_REPORT) -> None:
 
 
 @typer_app.callback(invoke_without_command=True)
-def main(ctx: typer.Context, verbose: bool = False) -> None:
+def main(ctx: typer.Context, verbose: bool = False, version: bool = False) -> None:
+    if version:
+        print(importlib_version("task_tui"))
+        return
     logging_level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(format="%(asctime)s %(name)s %(levelname)s:%(message)s", level=logging_level, filename="./task-tui.log")
     log.debug("\nStarting application.")
