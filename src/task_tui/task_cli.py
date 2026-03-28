@@ -14,7 +14,8 @@ class TaskCli:
 
     def __init__(self) -> None:
         try:
-            self._run_task("show")
+            result = self._run_task("show")
+            self._config_output = result.stdout.strip()
         except FileNotFoundError:
             raise FileNotFoundError("The task CLI tool doesn't seem to be installed.")
         except Exception:
@@ -94,9 +95,7 @@ class TaskCli:
         return tasks
 
     def get_config(self) -> Config:
-        command = ["show"]
-        config_output: str = self._run_task(*command).stdout.strip()
-        return Config(config_output)
+        return Config(self._config_output)
 
     def get_report_columns(self, report: str) -> list[tuple[str, str]]:
         command = ["show", "rc.defaultwidth=0", f"report.{report}.columns"]
