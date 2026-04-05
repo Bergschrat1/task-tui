@@ -1,0 +1,127 @@
+package tui
+
+import (
+	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+)
+
+// Dialog types
+type dialogKind int
+
+const (
+	dialogNone dialogKind = iota
+	dialogConfirm
+	dialogTextInput
+)
+
+// Pending action that triggered the dialog
+type pendingAction int
+
+const (
+	actionNone pendingAction = iota
+	actionAdd
+	actionDone
+	actionDelete
+	actionModify
+	actionAnnotate
+	actionLog
+)
+
+// confirmModel handles yes/no confirmations.
+type confirmModel struct {
+	prompt string
+}
+
+func newConfirmModel(prompt string) confirmModel {
+	return confirmModel{prompt: prompt}
+}
+
+func (m confirmModel) Update(msg tea.Msg) (confirmModel, tea.Cmd, *bool) {
+	if msg, ok := msg.(tea.KeyMsg); ok {
+		switch {
+		case key.Matches(msg, key.NewBinding(key.WithKeys("y", "enter"))):
+			result := true
+			return m, nil, &result
+		case key.Matches(msg, key.NewBinding(key.WithKeys("n", "esc", "escape"))):
+			result := false
+			return m, nil, &result
+		}
+	}
+	return m, nil, nil
+}
+
+func (m confirmModel) View(width, height int) string {
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("62")).
+		Padding(1, 2).
+		Width(50).
+		Align(lipgloss.Center)
+
+	content := lipgloss.JoinVertical(lipgloss.Center,
+		m.prompt,
+		"",
+		lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render("[y]es / [n]o"),
+	)
+
+	box := boxStyle.Render(content)
+	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, box)
+}
+
+// textInputModel handles single-line text input.
+type textInputModel struct {
+	prompt    string
+	textInput textinput.Model
+}
+
+func newTextInputModel(prompt string) textInputModel {
+	ti := textinput.New()
+	ti.Placeholder = "..."
+	ti.Focus()
+	ti.CharLimit = 256
+	ti.Width = 44
+
+	return textInputModel{
+		prompt:    prompt,
+		textInput: ti,
+	}
+}
+
+func (m textInputModel) Update(msg tea.Msg) (textInputModel, tea.Cmd, *string) {
+	if msg, ok := msg.(tea.KeyMsg); ok {
+		switch msg.Type {
+		case tea.KeyEnter:
+			value := m.textInput.Value()
+			return m, nil, &value
+		case tea.KeyEsc:
+			empty := ""
+			return m, nil, &empty
+		}
+	}
+
+	var cmd tea.Cmd
+	m.textInput, cmd = m.textInput.Update(msg)
+	return m, cmd, nil
+}
+
+func (m textInputModel) View(width, height int) string {
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("62")).
+		Padding(1, 2).
+		Width(50).
+		Align(lipgloss.Center)
+
+	content := lipgloss.JoinVertical(lipgloss.Center,
+		m.prompt,
+		"",
+		m.textInput.View(),
+		"",
+		lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render("[enter] submit / [esc] cancel"),
+	)
+
+	box := boxStyle.Render(content)
+	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, box)
+}

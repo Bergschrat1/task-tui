@@ -10,6 +10,8 @@
     let
       inherit (nixpkgs) lib;
       forAllSystems = lib.genAttrs lib.systems.flakeExposed;
+      # Go settings
+      goVersion = 23;
     in
     {
       packages = forAllSystems (
@@ -40,6 +42,10 @@
           };
         }
       );
+      overlays.default = final: prev: {
+          go = final."go_1_${toString goVersion}";
+        };
+
 
       devShells = forAllSystems (
         system:
@@ -51,6 +57,14 @@
             packages = [
               pkgs.python313
               pkgs.uv
+              # go (version is specified by overlay)
+              pkgs.go
+              # goimports, godoc, etc.
+              pkgs.gotools
+              # https://github.com/golangci/golangci-lint
+              pkgs.golangci-lint
+              # lsp
+              pkgs.gopls
             ];
 
             shellHook = ''
