@@ -8,9 +8,10 @@ import (
 	"task-tui-go/internal/taskwarrior"
 	"task-tui-go/internal/util"
 
-	"github.com/charmbracelet/bubbles/table"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/table"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/log/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // Column formatting functions map column names to display formatters.
@@ -149,15 +150,17 @@ func (m tasksModel) Update(msg tea.Msg) (tasksModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case taskRefreshMsg:
 		if msg.err != nil {
+			log.Error("task refresh failed", "err", msg.err)
 			return m, nil
 		}
 		m.tasks = msg.tasks
 		m.columns = msg.columns
 		m.labels = msg.labels
 		m.rebuildTable()
+		log.Info("tasks refreshed", "count", len(m.tasks), "columns", len(m.columns))
 		return m, nil
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		var cmd tea.Cmd
 		m.table, cmd = m.table.Update(msg)
 		return m, cmd
@@ -173,12 +176,8 @@ func (m *tasksModel) rebuildTable() {
 		return
 	}
 
-	// Build columns with auto-calculated widths
-	tableColumns := m.calculateColumns()
-	m.table.SetColumns(tableColumns)
-
-	// Build rows
-	rows := make([]table.Row, len(m.tasks))
+	// Build all rows first
+	allRows := make([]table.Row, len(m.tasks))
 	selectIdx := 0
 	for i := range m.tasks {
 		row := make(table.Row, len(m.columns))
@@ -187,12 +186,49 @@ func (m *tasksModel) rebuildTable() {
 				row[j] = formatter(&m.tasks[i])
 			}
 		}
-		rows[i] = row
+		allRows[i] = row
 		if m.selectID > 0 && m.tasks[i].ID == m.selectID {
 			selectIdx = i
 		}
 	}
 
+	// Filter out columns where every row has an empty value
+	keep := make([]bool, len(m.columns))
+	for j := range m.columns {
+		for _, row := range allRows {
+			if row[j] != "" {
+				keep[j] = true
+				break
+			}
+		}
+	}
+
+	var filteredCols []string
+	var filteredLabels []string
+	for j := range m.columns {
+		if keep[j] {
+			filteredCols = append(filteredCols, m.columns[j])
+			filteredLabels = append(filteredLabels, m.labels[j])
+		}
+	}
+	m.columns = filteredCols
+	m.labels = filteredLabels
+
+	// Filter rows to match
+	rows := make([]table.Row, len(allRows))
+	for i, row := range allRows {
+		var filtered table.Row
+		for j, cell := range row {
+			if keep[j] {
+				filtered = append(filtered, cell)
+			}
+		}
+		rows[i] = filtered
+	}
+
+	// Calculate widths and set table
+	tableColumns := m.calculateColumns()
+	m.table.SetColumns(tableColumns)
 	m.table.SetRows(rows)
 	if len(rows) > 0 {
 		m.table.SetCursor(selectIdx)

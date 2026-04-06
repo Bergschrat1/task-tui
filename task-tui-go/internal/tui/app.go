@@ -5,9 +5,9 @@ import (
 
 	"task-tui-go/internal/taskwarrior"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 type activeTab int
@@ -76,24 +76,44 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case editFinishedMsg:
 		// Returned from $EDITOR
-		return m, m.tasks.refreshCmd()
+		return m, tea.Batch(
+			m.tasks.refreshCmd(),
+			m.projects.refreshCmd(),
+		)
 
 	case taskActionDoneMsg:
-		return m, m.tasks.refreshCmd()
+		return m, tea.Batch(
+			m.tasks.refreshCmd(),
+			m.projects.refreshCmd(),
+		)
 
 	case taskAddedMsg:
 		m.tasks.selectID = msg.id
-		return m, m.tasks.refreshCmd()
+		return m, tea.Batch(
+			m.tasks.refreshCmd(),
+			m.projects.refreshCmd(),
+		)
 
 	case taskModifiedMsg:
 		m.tasks.selectID = msg.id
-		return m, m.tasks.refreshCmd()
+		return m, tea.Batch(
+			m.tasks.refreshCmd(),
+			m.projects.refreshCmd(),
+		)
 
 	case contextSwitchedMsg:
 		return m, tea.Batch(
 			m.tasks.refreshCmd(),
 			m.contexts.refreshCmd(),
 		)
+
+	case projectRefreshMsg:
+		m.projects, _ = m.projects.Update(msg)
+		return m, nil
+
+	case contextRefreshMsg:
+		m.contexts, _ = m.contexts.Update(msg)
+		return m, nil
 	}
 
 	// Route to dialog if active
@@ -102,7 +122,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Handle global keys
-	if msg, ok := msg.(tea.KeyMsg); ok {
+	if msg, ok := msg.(tea.KeyPressMsg); ok {
 		switch {
 		case key.Matches(msg, keys.Quit):
 			return m, tea.Quit
@@ -142,7 +162,7 @@ func (m Model) updateActiveTab(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m Model) updateTasksTab(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateTasksTab(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, keys.Refresh):
 		return m, m.tasks.refreshCmd()
@@ -232,7 +252,7 @@ type editFinishedMsg struct {
 	err error
 }
 
-func (m Model) updateContextsTab(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateContextsTab(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, keys.Enter):
 		ctx := m.contexts.SelectedContext()
@@ -362,9 +382,11 @@ type taskActionDoneMsg struct{}
 type taskAddedMsg struct{ id int }
 type taskModifiedMsg struct{ id int }
 
-func (m Model) View() string {
+func (m Model) View() tea.View {
 	if m.width == 0 {
-		return "Loading..."
+		v := tea.NewView("Loading...")
+		v.AltScreen = true
+		return v
 	}
 
 	// Tab bar
@@ -388,17 +410,17 @@ func (m Model) View() string {
 
 	// Overlay dialog if active
 	if m.dialog != dialogNone {
-		var dialogView string
 		switch m.dialog {
 		case dialogConfirm:
-			dialogView = m.confirmDialog.View(m.width, m.height)
+			view = m.confirmDialog.View(m.width, m.height)
 		case dialogTextInput:
-			dialogView = m.inputDialog.View(m.width, m.height)
+			view = m.inputDialog.View(m.width, m.height)
 		}
-		return dialogView
 	}
 
-	return view
+	v := tea.NewView(view)
+	v.AltScreen = true
+	return v
 }
 
 func (m Model) renderTabBar() string {

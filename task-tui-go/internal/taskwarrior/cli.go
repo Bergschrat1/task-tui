@@ -8,6 +8,9 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
+
+	"charm.land/log/v2"
 )
 
 var createdTaskRe = regexp.MustCompile(`Created task (\d+)`)
@@ -39,23 +42,32 @@ func (c *TaskCli) GetConfig() *Config {
 }
 
 func (c *TaskCli) runTask(args ...string) (string, error) {
+	start := time.Now()
 	cmd := exec.Command(c.command, args...)
 	out, err := cmd.Output()
+	duration := time.Since(start)
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
+			log.Error("task command failed", "args", args, "duration", duration, "stderr", string(exitErr.Stderr))
 			return string(out), fmt.Errorf("task %s failed: %s", strings.Join(args, " "), string(exitErr.Stderr))
 		}
+		log.Error("task command error", "args", args, "err", err)
 		return "", err
 	}
+	log.Debug("task command", "args", args, "duration", duration)
 	return string(out), nil
 }
 
 func (c *TaskCli) runTaskCheck(args ...string) error {
+	start := time.Now()
 	cmd := exec.Command(c.command, args...)
 	out, err := cmd.CombinedOutput()
+	duration := time.Since(start)
 	if err != nil {
+		log.Error("task command failed", "args", args, "duration", duration, "output", string(out))
 		return fmt.Errorf("task %s failed: %s", strings.Join(args, " "), string(out))
 	}
+	log.Debug("task command", "args", args, "duration", duration)
 	return nil
 }
 

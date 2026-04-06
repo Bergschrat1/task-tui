@@ -6,9 +6,10 @@ import (
 
 	"task-tui-go/internal/taskwarrior"
 
-	"github.com/charmbracelet/bubbles/table"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/table"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"charm.land/log/v2"
 )
 
 type projectAggregate struct {
@@ -75,12 +76,14 @@ func (m projectsModel) Update(msg tea.Msg) (projectsModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case projectRefreshMsg:
 		if msg.err != nil {
+			log.Error("project refresh failed", "err", msg.err)
 			return m, nil
 		}
 		m.rebuildTable(msg.tasks)
+		log.Info("projects refreshed", "tasks", len(msg.tasks))
 		return m, nil
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		var cmd tea.Cmd
 		m.table, cmd = m.table.Update(msg)
 		return m, cmd

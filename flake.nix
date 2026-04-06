@@ -73,8 +73,8 @@
               . .venv/bin/activate
             '';
 
-            TASKDATA = "./test_data/";
-            TASKRC = "./test_data/taskrc";
+            TASKDATA = "/home/jokeh/projects/task-tui/test_data/";
+            TASKRC = "/home/jokeh/projects/task-tui/test_data/taskrc";
           };
         }
       );

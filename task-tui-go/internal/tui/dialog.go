@@ -1,10 +1,10 @@
 package tui
 
 import (
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // Dialog types
@@ -39,7 +39,7 @@ func newConfirmModel(prompt string) confirmModel {
 }
 
 func (m confirmModel) Update(msg tea.Msg) (confirmModel, tea.Cmd, *bool) {
-	if msg, ok := msg.(tea.KeyMsg); ok {
+	if msg, ok := msg.(tea.KeyPressMsg); ok {
 		switch {
 		case key.Matches(msg, key.NewBinding(key.WithKeys("y", "enter"))):
 			result := true
@@ -81,7 +81,7 @@ func newTextInputModel(prompt string) textInputModel {
 	ti.Placeholder = "..."
 	ti.Focus()
 	ti.CharLimit = 256
-	ti.Width = 44
+	ti.SetWidth(44)
 
 	return textInputModel{
 		prompt:    prompt,
@@ -90,12 +90,12 @@ func newTextInputModel(prompt string) textInputModel {
 }
 
 func (m textInputModel) Update(msg tea.Msg) (textInputModel, tea.Cmd, *string) {
-	if msg, ok := msg.(tea.KeyMsg); ok {
-		switch msg.Type {
-		case tea.KeyEnter:
+	if msg, ok := msg.(tea.KeyPressMsg); ok {
+		switch msg.String() {
+		case "enter":
 			value := m.textInput.Value()
 			return m, nil, &value
-		case tea.KeyEsc:
+		case "esc", "escape":
 			empty := ""
 			return m, nil, &empty
 		}

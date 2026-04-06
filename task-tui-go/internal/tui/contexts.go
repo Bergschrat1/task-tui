@@ -3,9 +3,10 @@ package tui
 import (
 	"task-tui-go/internal/taskwarrior"
 
-	"github.com/charmbracelet/bubbles/table"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/table"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"charm.land/log/v2"
 )
 
 type contextsModel struct {
@@ -65,13 +66,15 @@ func (m contextsModel) Update(msg tea.Msg) (contextsModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case contextRefreshMsg:
 		if msg.err != nil {
+			log.Error("context refresh failed", "err", msg.err)
 			return m, nil
 		}
 		m.contexts = msg.contexts
 		m.rebuildTable()
+		log.Info("contexts refreshed", "count", len(m.contexts))
 		return m, nil
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		var cmd tea.Cmd
 		m.table, cmd = m.table.Update(msg)
 		return m, cmd
