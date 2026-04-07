@@ -2,6 +2,7 @@ import logging
 import re
 import shlex
 import subprocess
+import time
 
 from task_tui.config import Config
 from task_tui.data_models import ContextInfo, Task
@@ -23,8 +24,10 @@ class TaskCli:
 
     def _run_task(self, *args: str) -> subprocess.CompletedProcess:
         command = [self.base_command, *args]
-        log.debug("Running `%s`", " ".join(command))
-        return subprocess.run(command, text=True, capture_output=True)
+        t = time.perf_counter()
+        result = subprocess.run(command, text=True, capture_output=True)
+        log.debug(f"'{' '.join(args)}': {time.perf_counter() - t:.3f}s")
+        return result
 
     def _get_config_value(self, config_key: str) -> str:
         completed_process = self._run_task("_get", config_key)

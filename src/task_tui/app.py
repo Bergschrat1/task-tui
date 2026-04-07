@@ -35,8 +35,6 @@ from task_tui.widgets import (
 
 log = logging.getLogger(__name__)
 
-task_cli = TaskCli()
-
 
 class DueState(Enum):
     TODAY = auto()
@@ -189,7 +187,8 @@ class TaskTuiApp(App):
 
     def __init__(self, report: str) -> None:
         self.report = report
-        self.config = task_cli.get_config()
+        self.task_cli = TaskCli()
+        self.config = self.task_cli.get_config()
         self.tasks = TaskStore([], self.config)
         super().__init__()
 
@@ -238,7 +237,7 @@ class TaskTuiApp(App):
     def _update_projects(self) -> None:
         log.debug("Updating projects")
         projects = self.query_one(ProjectSummary)
-        projects.refresh_from_tasks(task_cli.export_tasks("all"))
+        projects.refresh_from_tasks(self.task_cli.export_tasks("all"))
 
     def _cycle_tabs(self, direction: int) -> None:
         tabs: TabbedContent = self.query_one(TabbedContent)
@@ -279,9 +278,9 @@ class TaskTuiApp(App):
         previous_row: int = table.cursor_row
         log.debug("Updating tasks")
         log.debug("Previous row: %d, Previous number of tasks: %d", previous_row, len(self.tasks))
-        tasks = task_cli.export_tasks(self.report)
+        tasks = self.task_cli.export_tasks(self.report)
         self.tasks = TaskStore(tasks, self.config)
-        self.headings = task_cli.get_report_columns(self.report)
+        self.headings = self.task_cli.get_report_columns(self.report)
         self._update_table()
 
         if event.select_task_id is not None:
@@ -309,11 +308,11 @@ class TaskTuiApp(App):
     def _update_contexts(self) -> None:
         log.debug("Updating contexts")
         context_summary: ContextSummary = self.query_one(ContextSummary)
-        context_summary.refresh_from_contexts(task_cli.list_contexts())
+        context_summary.refresh_from_contexts(self.task_cli.list_contexts())
 
     @on(ContextSelected)
     def _handle_context_selected(self, event: ContextSelected) -> None:
-        task_cli.set_context(event.context.name)
+        self.task_cli.set_context(event.context.name)
         self._update_contexts()
         self.post_message(TasksChanged())
         self.notify(f'Context set to "{event.context.name}"')
@@ -323,7 +322,7 @@ class TaskTuiApp(App):
             if description is None:
                 return
             try:
-                new_task_id = task_cli.add_task(description)
+                new_task_id = self.task_cli.add_task(description)
             except ValueError as e:
                 self.notify(f"Failed to create task:\n{str(e)}", severity="error", markup=True)
                 return
@@ -345,7 +344,7 @@ class TaskTuiApp(App):
 
     def action_set_done(self) -> None:
         def set_done(quit: bool | None) -> None:
-            task_cli.set_task_done(current_task)
+            self.task_cli.set_task_done(current_task)
             self.post_message(TasksChanged())
 
         table: TaskReport = self.query_one(TaskReport)
@@ -355,7 +354,7 @@ class TaskTuiApp(App):
 
     def action_delete_task(self) -> None:
         def delete_task(quit: bool | None) -> None:
-            task_cli.delete_task(current_task)
+            self.task_cli.delete_task(current_task)
             self.post_message(TasksChanged())
 
         table: TaskReport = self.query_one(TaskReport)
@@ -371,10 +370,10 @@ class TaskTuiApp(App):
             return
         current_task = self.tasks[table.cursor_row]
         if current_task.start is None:
-            task_cli.start_task(current_task)
+            self.task_cli.start_task(current_task)
             self.notify(f'Task "{current_task.description}" started')
         else:
-            task_cli.stop_task(current_task)
+            self.task_cli.stop_task(current_task)
             self.notify(f'Task "{current_task.description}" stopped')
 
         self.post_message(TasksChanged(select_task_id=current_task.id))
@@ -397,7 +396,7 @@ class TaskTuiApp(App):
                 return
 
             try:
-                task_cli.modify_task(current_task, modification)
+                self.task_cli.modify_task(current_task, modification)
             except ValueError as e:
                 self.notify(f"Failed to modify task:\n{str(e)}", severity="error", markup=True)
                 return
@@ -419,7 +418,7 @@ class TaskTuiApp(App):
                 return
 
             try:
-                task_cli.annotate_task(current_task, annotation)
+                self.task_cli.annotate_task(current_task, annotation)
             except ValueError as e:
                 self.notify(f"Failed to annotate task:\n{str(e)}", severity="error", markup=True)
                 return
@@ -435,7 +434,7 @@ class TaskTuiApp(App):
             if description is None:
                 return
             try:
-                task_cli.log_task(description)
+                self.task_cli.log_task(description)
             except ValueError as e:
                 self.notify(f"Failed to log task:\n{str(e)}", severity="error", markup=True)
                 return
@@ -453,13 +452,13 @@ class TaskTuiApp(App):
         current_task = self.tasks[table.cursor_row]
         try:
             with self.suspend():
-                task_cli.edit_task(current_task)
+                self.task_cli.edit_task(current_task)
                 self.post_message(TasksChanged(select_task_id=current_task.id))
         except ValueError as e:
             self.notify(f"Failed to edit task:\n{str(e)}", severity="error", markup=True)
 
     def action_start_review(self) -> None:
-        if not task_cli.has_reviewed_uda():
+        if not self.task_cli.has_reviewed_uda():
             self._prompt_configure_reviewed_uda()
             return
 
@@ -468,7 +467,7 @@ class TaskTuiApp(App):
     def _prompt_configure_reviewed_uda(self) -> None:
         def handle_confirm(confirmed: bool | None) -> None:
             if confirmed:
-                task_cli.configure_reviewed_uda()
+                self.task_cli.configure_reviewed_uda()
                 self.notify("Configured 'reviewed' UDA")
                 self._launch_review_dialog()
 
@@ -476,7 +475,7 @@ class TaskTuiApp(App):
         self.push_screen(ConfirmDialog(prompt), handle_confirm)
 
     def _launch_review_dialog(self) -> None:
-        tasks = task_cli.export_tasks_for_review()
+        tasks = self.task_cli.export_tasks_for_review()
         if not tasks:
             self.notify("No tasks to review")
             return
@@ -491,18 +490,18 @@ class TaskTuiApp(App):
 
         if action == "reviewed":
             try:
-                task_cli.mark_task_reviewed(task)
+                self.task_cli.mark_task_reviewed(task)
                 self.notify(f'Task "{task.description}" marked as reviewed')
             except ValueError as e:
                 self.notify(f"Failed to mark task as reviewed:\n{str(e)}", severity="error", markup=True)
 
         elif action == "complete":
-            task_cli.set_task_done(task)
+            self.task_cli.set_task_done(task)
             self.notify(f'Task "{task.description}" marked done')
 
         elif action == "delete":
             try:
-                task_cli.delete_task(task)
+                self.task_cli.delete_task(task)
                 self.notify(f'Task "{task.description}" deleted')
             except ValueError as e:
                 self.notify(f"Failed to delete task:\n{str(e)}", severity="error", markup=True)
@@ -510,7 +509,7 @@ class TaskTuiApp(App):
         elif action == "edit":
             try:
                 with self.suspend():
-                    task_cli.edit_task(task)
+                    self.task_cli.edit_task(task)
                     self.notify(f'Task "{task.description}" edited')
                     # Refresh the task in the review dialog
                     self._refresh_review_dialog_task(task)
@@ -523,7 +522,7 @@ class TaskTuiApp(App):
                 if modification is None or modification.strip() == "":
                     return
                 try:
-                    task_cli.modify_task(task, modification)
+                    self.task_cli.modify_task(task, modification)
                     self.notify(f'Task "{task.description}" modified')
                     # Refresh the task in the review dialog
                     self._refresh_review_dialog_task(task)
@@ -535,7 +534,7 @@ class TaskTuiApp(App):
 
     def _refresh_review_dialog_task(self, task: Task) -> None:
         """Refresh the current task in the review dialog after modifications."""
-        updated_task = task_cli.get_task_by_uuid(str(task.uuid))
+        updated_task = self.task_cli.get_task_by_uuid(str(task.uuid))
         if updated_task is None:
             log.debug("Could not fetch updated task")
             return

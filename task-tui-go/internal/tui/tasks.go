@@ -8,10 +8,11 @@ import (
 	"task-tui-go/internal/taskwarrior"
 	"task-tui-go/internal/util"
 
-	"charm.land/bubbles/v2/table"
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
-	"charm.land/log/v2"
 	"charm.land/lipgloss/v2"
+	ltable "charm.land/lipgloss/v2/table"
+	"charm.land/log/v2"
 )
 
 // Column formatting functions map column names to display formatters.
@@ -88,38 +89,28 @@ var columnFormatters = map[string]func(*taskwarrior.Task) string{
 	},
 }
 
+var headerStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("229"))
+
 type tasksModel struct {
-	table     table.Model
 	tasks     []taskwarrior.Task
 	columns   []string
 	labels    []string
-	cli       *taskwarrior.TaskCli
-	report    string
-	width     int
-	height    int
-	selectID  int // task ID to select after refresh
+	rowData   [][]string
+	rowStyles []taskwarrior.TaskStyle
+
+	cursor   int
+	cli      *taskwarrior.TaskCli
+	cfg      *taskwarrior.Config
+	report   string
+	width    int
+	height   int
+	selectID int
 }
 
-func newTasksModel(cli *taskwarrior.TaskCli, report string) tasksModel {
-	t := table.New(
-		table.WithFocused(true),
-	)
-
-	s := table.DefaultStyles()
-	s.Header = s.Header.
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		BorderBottom(true).
-		Bold(true)
-	s.Selected = s.Selected.
-		Foreground(lipgloss.Color("229")).
-		Background(lipgloss.Color("57")).
-		Bold(false)
-	t.SetStyles(s)
-
+func newTasksModel(cli *taskwarrior.TaskCli, cfg *taskwarrior.Config, report string) tasksModel {
 	return tasksModel{
-		table:  t,
 		cli:    cli,
+		cfg:    cfg,
 		report: report,
 	}
 }
@@ -161,14 +152,68 @@ func (m tasksModel) Update(msg tea.Msg) (tasksModel, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyPressMsg:
-		var cmd tea.Cmd
-		m.table, cmd = m.table.Update(msg)
-		return m, cmd
+		m.handleKey(msg)
+		return m, nil
 	}
 
-	var cmd tea.Cmd
-	m.table, cmd = m.table.Update(msg)
-	return m, cmd
+	return m, nil
+}
+
+func (m *tasksModel) handleKey(msg tea.KeyPressMsg) {
+	rowCount := len(m.rowData)
+	if rowCount == 0 {
+		return
+	}
+
+	switch {
+	case key.Matches(msg, keys.Up):
+		if m.cursor > 0 {
+			m.cursor--
+		}
+	case key.Matches(msg, keys.Down):
+		if m.cursor < rowCount-1 {
+			m.cursor++
+		}
+	case key.Matches(msg, keys.PageUp):
+		m.cursor -= m.pageSize()
+		if m.cursor < 0 {
+			m.cursor = 0
+		}
+	case key.Matches(msg, keys.PageDown):
+		m.cursor += m.pageSize()
+		if m.cursor >= rowCount {
+			m.cursor = rowCount - 1
+		}
+	case key.Matches(msg, keys.GoTop):
+		m.cursor = 0
+	case key.Matches(msg, keys.GoBottom):
+		m.cursor = rowCount - 1
+	}
+}
+
+func (m *tasksModel) pageSize() int {
+	visible := m.visibleRows()
+	if visible < 1 {
+		return 1
+	}
+	return visible / 2
+}
+
+func (m *tasksModel) visibleRows() int {
+	// Height minus header (2 lines with border) minus bottom border
+	v := m.height - 4
+	if v < 1 {
+		return 1
+	}
+	return v
+}
+
+func (m *tasksModel) scrollOffset() int {
+	visible := m.visibleRows()
+	if m.cursor >= visible {
+		return m.cursor - visible + 1
+	}
+	return 0
 }
 
 func (m *tasksModel) rebuildTable() {
@@ -176,11 +221,14 @@ func (m *tasksModel) rebuildTable() {
 		return
 	}
 
+	// Compute virtual tags for styling
+	computeVirtualTags(m.tasks, m.cfg)
+
 	// Build all rows first
-	allRows := make([]table.Row, len(m.tasks))
+	allRows := make([][]string, len(m.tasks))
 	selectIdx := 0
 	for i := range m.tasks {
-		row := make(table.Row, len(m.columns))
+		row := make([]string, len(m.columns))
 		for j, col := range m.columns {
 			if formatter, ok := columnFormatters[col]; ok {
 				row[j] = formatter(&m.tasks[i])
@@ -215,99 +263,78 @@ func (m *tasksModel) rebuildTable() {
 	m.labels = filteredLabels
 
 	// Filter rows to match
-	rows := make([]table.Row, len(allRows))
+	m.rowData = make([][]string, len(allRows))
 	for i, row := range allRows {
-		var filtered table.Row
+		var filtered []string
 		for j, cell := range row {
 			if keep[j] {
 				filtered = append(filtered, cell)
 			}
 		}
-		rows[i] = filtered
+		m.rowData[i] = filtered
 	}
 
-	// Calculate widths and set table
-	tableColumns := m.calculateColumns()
-	m.table.SetColumns(tableColumns)
-	m.table.SetRows(rows)
-	if len(rows) > 0 {
-		m.table.SetCursor(selectIdx)
+	// Resolve per-row styles
+	m.rowStyles = make([]taskwarrior.TaskStyle, len(m.tasks))
+	for i := range m.tasks {
+		m.rowStyles[i] = resolveTaskStyle(&m.tasks[i], m.cfg)
+	}
+
+	// Set cursor
+	if len(m.rowData) > 0 {
+		m.cursor = selectIdx
+		if m.cursor >= len(m.rowData) {
+			m.cursor = len(m.rowData) - 1
+		}
+	} else {
+		m.cursor = 0
 	}
 	m.selectID = 0
 }
 
-func (m *tasksModel) calculateColumns() []table.Column {
-	if len(m.columns) == 0 {
-		return nil
-	}
-
-	// Calculate max content width per column
-	widths := make([]int, len(m.columns))
-	for i, label := range m.labels {
-		widths[i] = len(label)
-	}
-	for i := range m.tasks {
-		for j, col := range m.columns {
-			if formatter, ok := columnFormatters[col]; ok {
-				w := len(formatter(&m.tasks[i]))
-				if w > widths[j] {
-					widths[j] = w
-				}
-			}
-		}
-	}
-
-	// Cap column widths, distribute remaining space to description
-	available := m.width - 4 // border padding
-	totalFixed := 0
-	descIdx := -1
-	for i, col := range m.columns {
-		if col == "description" {
-			descIdx = i
-			continue
-		}
-		// Cap non-description columns at their content width + 2 padding
-		widths[i] = widths[i] + 2
-		if widths[i] > 40 {
-			widths[i] = 40
-		}
-		totalFixed += widths[i]
-	}
-
-	if descIdx >= 0 {
-		descWidth := available - totalFixed
-		if descWidth < 20 {
-			descWidth = 20
-		}
-		widths[descIdx] = descWidth
-	}
-
-	cols := make([]table.Column, len(m.columns))
-	for i, label := range m.labels {
-		cols[i] = table.Column{Title: label, Width: widths[i]}
-	}
-	return cols
-}
-
 func (m tasksModel) View() string {
-	return m.table.View()
+	if len(m.rowData) == 0 {
+		return "No tasks."
+	}
+
+	offset := m.scrollOffset()
+	cursor := m.cursor
+
+	t := ltable.New().
+		Headers(m.labels...).
+		Rows(m.rowData...).
+		Width(m.width).
+		Height(m.height - 2).
+		YOffset(offset).
+		Border(lipgloss.NormalBorder()).
+		BorderColumn(false).
+		BorderRow(false).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			if row == ltable.HeaderRow {
+				return headerStyle
+			}
+			// row is 0-indexed from the full data set
+			style := m.rowStyles[row].ToLipgloss()
+			if row == cursor {
+				style = style.Underline(true)
+			}
+			return style
+		})
+
+	return t.Render()
 }
 
 func (m *tasksModel) SetSize(width, height int) {
 	m.width = width
 	m.height = height
-	m.table.SetWidth(width)
-	m.table.SetHeight(height - 2) // leave room for footer
-	m.rebuildTable()
 }
 
 // SelectedTask returns the currently selected task, or nil.
 func (m *tasksModel) SelectedTask() *taskwarrior.Task {
-	cursor := m.table.Cursor()
-	if cursor < 0 || cursor >= len(m.tasks) {
+	if m.cursor < 0 || m.cursor >= len(m.tasks) {
 		return nil
 	}
-	return &m.tasks[cursor]
+	return &m.tasks[m.cursor]
 }
 
 // computeVirtualTags assigns virtual tags to all tasks.

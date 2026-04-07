@@ -49,7 +49,7 @@ func NewModel(cli *taskwarrior.TaskCli, report string) Model {
 		config:    cfg,
 		report:    report,
 		activeTab: tabTasks,
-		tasks:     newTasksModel(cli, report),
+		tasks:     newTasksModel(cli, cfg, report),
 		projects:  newProjectsModel(cli),
 		contexts:  newContextsModel(cli),
 	}

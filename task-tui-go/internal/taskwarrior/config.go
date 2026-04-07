@@ -8,6 +8,7 @@ import (
 type Config struct {
 	Due             int
 	ColorPrecedence string
+	Colors          map[string]TaskStyle
 }
 
 // ParseConfig extracts configuration values from `task show` output.
@@ -36,6 +37,8 @@ func ParseConfig(output string) Config {
 			}
 		}
 	}
+
+	cfg.Colors = ParseColorConfig(output)
 
 	return cfg
 }

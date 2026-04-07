@@ -3,7 +3,6 @@ from importlib.metadata import version as importlib_version
 
 import typer
 
-from task_tui.app import TaskTuiApp
 from task_tui.task_cli import TaskCli
 
 typer_app = typer.Typer(pretty_exceptions_enable=False)
@@ -25,6 +24,8 @@ def health() -> None:
 
 @typer_app.command()
 def task_tui(report: str = DEFAULT_REPORT) -> None:
+    from task_tui.app import TaskTuiApp
+
     log.debug("Starting TUI with report %s.", report)
     task_tui_app = TaskTuiApp(report)
     task_tui_app.run()
