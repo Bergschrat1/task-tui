@@ -416,10 +416,7 @@ func (m Model) View() tea.View {
 	tabBarHeight := lipgloss.Height(tabBar)
 	contentHeight := lipgloss.Height(content)
 	footerHeight := lipgloss.Height(footer)
-	gap := m.height - tabBarHeight - contentHeight - footerHeight
-	if gap < 0 {
-		gap = 0
-	}
+	gap := max(m.height-tabBarHeight-contentHeight-footerHeight, 0)
 	spacer := lipgloss.NewStyle().Height(gap).Render("")
 
 	view := lipgloss.JoinVertical(lipgloss.Left, tabBar, content, spacer, footer)
@@ -441,7 +438,7 @@ func (m Model) View() tea.View {
 
 func (m Model) renderTabBar() string {
 	var tabs []string
-	for i := 0; i < int(tabCount); i++ {
+	for i := range int(tabCount) {
 		style := lipgloss.NewStyle().Padding(0, 2)
 		if activeTab(i) == m.activeTab {
 			style = style.Bold(true).
