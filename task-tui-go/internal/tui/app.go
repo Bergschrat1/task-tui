@@ -412,7 +412,17 @@ func (m Model) View() tea.View {
 	// Footer
 	footer := m.getHelpView()
 
-	view := lipgloss.JoinVertical(lipgloss.Left, tabBar, content, footer)
+	// Add a padding so that the footer is always at the bottom
+	tabBarHeight := lipgloss.Height(tabBar)
+	contentHeight := lipgloss.Height(content)
+	footerHeight := lipgloss.Height(footer)
+	gap := m.height - tabBarHeight - contentHeight - footerHeight
+	if gap < 0 {
+		gap = 0
+	}
+	spacer := lipgloss.NewStyle().Height(gap).Render("")
+
+	view := lipgloss.JoinVertical(lipgloss.Left, tabBar, content, spacer, footer)
 
 	// Overlay dialog if active
 	if m.dialog != dialogNone {

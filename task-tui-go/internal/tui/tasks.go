@@ -89,7 +89,7 @@ var columnFormatters = map[string]func(*taskwarrior.Task) string{
 	},
 }
 
-var headerStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("229"))
+var headerStyle = lipgloss.NewStyle().Bold(true)
 
 type tasksModel struct {
 	tasks     []taskwarrior.Task
@@ -307,6 +307,12 @@ func (m tasksModel) View() string {
 		Height(m.height - 2).
 		YOffset(offset).
 		Border(lipgloss.NormalBorder()).
+		BorderStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("240"))).
+		BorderHeader(true).
+		BorderTop(false).
+		BorderBottom(false).
+		BorderLeft(false).
+		BorderRight(false).
 		BorderColumn(false).
 		BorderRow(false).
 		StyleFunc(func(row, col int) lipgloss.Style {
@@ -321,7 +327,7 @@ func (m tasksModel) View() string {
 			return style
 		})
 
-	return t.Render()
+	return lipgloss.NewStyle().PaddingLeft(1).Render(t.Render())
 }
 
 func (m *tasksModel) SetSize(width, height int) {
