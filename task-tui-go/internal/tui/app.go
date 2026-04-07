@@ -5,6 +5,7 @@ import (
 
 	"task-tui-go/internal/taskwarrior"
 
+	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -25,6 +26,7 @@ type Model struct {
 	cli    *taskwarrior.TaskCli
 	config *taskwarrior.Config
 	report string
+	help   help.Model
 
 	activeTab activeTab
 	tasks     tasksModel
@@ -48,6 +50,7 @@ func NewModel(cli *taskwarrior.TaskCli, report string) Model {
 		cli:       cli,
 		config:    cfg,
 		report:    report,
+		help:      help.New(),
 		activeTab: tabTasks,
 		tasks:     newTasksModel(cli, cfg, report),
 		projects:  newProjectsModel(cli),
@@ -134,6 +137,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, keys.NextTab):
 			m.activeTab = (m.activeTab + 1) % tabCount
 			return m, nil
+
+		case key.Matches(msg, keys.Help):
+			m.help.ShowAll = !m.help.ShowAll
 		}
 
 		// Tab-specific key handling
@@ -404,7 +410,7 @@ func (m Model) View() tea.View {
 	}
 
 	// Footer
-	footer := m.renderFooter()
+	footer := m.getHelpView()
 
 	view := lipgloss.JoinVertical(lipgloss.Left, tabBar, content, footer)
 
@@ -446,19 +452,18 @@ func (m Model) renderTabBar() string {
 		Render(tabRow)
 }
 
-func (m Model) renderFooter() string {
-	var helpText string
+func (m Model) getHelpView() string {
+	var km help.KeyMap
 	switch m.activeTab {
 	case tabTasks:
-		helpText = "a:add  d:done  del:delete  m:modify  A:annotate  s:start/stop  l:log  e:edit  r:refresh  [/]:tabs  q:quit"
+		km = tasksKeyMap{}
 	case tabProjects:
-		helpText = "j/k:navigate  [/]:tabs  q:quit"
+		km = projectsKeyMap{}
 	case tabContexts:
-		helpText = "j/k:navigate  enter:select  [/]:tabs  q:quit"
+		km = contextsKeyMap{}
 	}
 
 	return lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
 		Width(m.width).
-		Render(helpText)
+		Render(m.help.View(km))
 }

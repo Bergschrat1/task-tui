@@ -22,6 +22,8 @@ type keyMap struct {
 	Edit      key.Binding
 	Refresh   key.Binding
 	Enter     key.Binding
+	Review    key.Binding
+	Help      key.Binding
 }
 
 var keys = keyMap{
@@ -39,11 +41,11 @@ var keys = keyMap{
 	),
 	Up: key.NewBinding(
 		key.WithKeys("k", "up"),
-		key.WithHelp("k", "up"),
+		key.WithHelp("↑/k", "up"),
 	),
 	Down: key.NewBinding(
 		key.WithKeys("j", "down"),
-		key.WithHelp("j", "down"),
+		key.WithHelp("↓/j", "down"),
 	),
 	PageUp: key.NewBinding(
 		key.WithKeys("ctrl+u"),
@@ -101,4 +103,60 @@ var keys = keyMap{
 		key.WithKeys("enter"),
 		key.WithHelp("enter", "select"),
 	),
+	Review: key.NewBinding(
+		key.WithKeys("R"),
+		key.WithHelp("R", "review"),
+	),
+	Help: key.NewBinding(
+		key.WithKeys("?"),
+		key.WithHelp("?", "toggle help"),
+	),
+}
+
+// Per-tab key maps for help display.
+
+type tasksKeyMap struct{}
+
+func (tasksKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{
+		keys.Up, keys.Down, keys.Add, keys.Done, keys.Delete,
+		keys.Modify, keys.Annotate, keys.StartStop, keys.Log,
+		keys.Edit, keys.Refresh, keys.PrevTab, keys.NextTab, keys.Quit,
+	}
+}
+
+func (tasksKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{keys.Up, keys.Down, keys.PageUp, keys.PageDown, keys.GoTop, keys.GoBottom},
+		{keys.Add, keys.Done, keys.Delete, keys.Modify, keys.Annotate, keys.StartStop, keys.Log, keys.Edit},
+		{keys.Refresh, keys.PrevTab, keys.NextTab, keys.Quit},
+	}
+}
+
+type projectsKeyMap struct{}
+
+func (projectsKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{
+		keys.Up, keys.Down, keys.PrevTab, keys.NextTab, keys.Quit,
+	}
+}
+
+func (projectsKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{keys.Up, keys.Down, keys.PrevTab, keys.NextTab, keys.Quit},
+	}
+}
+
+type contextsKeyMap struct{}
+
+func (contextsKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{
+		keys.Up, keys.Down, keys.Enter, keys.PrevTab, keys.NextTab, keys.Quit,
+	}
+}
+
+func (contextsKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{keys.Up, keys.Down, keys.Enter, keys.PrevTab, keys.NextTab, keys.Quit},
+	}
 }
