@@ -8,7 +8,6 @@ import (
 	"task-tui/internal/taskwarrior"
 	"task-tui/internal/util"
 
-	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	ltable "charm.land/lipgloss/v2/table"
@@ -98,7 +97,7 @@ type tasksModel struct {
 	rowData   [][]string
 	rowStyles []taskwarrior.TaskStyle
 
-	cursor   int
+	cur      cursorState
 	cli      *taskwarrior.TaskCli
 	cfg      *taskwarrior.Config
 	report   string
@@ -152,69 +151,13 @@ func (m tasksModel) Update(msg tea.Msg) (tasksModel, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyPressMsg:
-		m.handleKey(msg)
+		m.cur.handleKey(msg)
 		return m, nil
 	}
 
 	return m, nil
 }
 
-func (m *tasksModel) handleKey(msg tea.KeyPressMsg) {
-	rowCount := len(m.rowData)
-	if rowCount == 0 {
-		return
-	}
-
-	switch {
-	case key.Matches(msg, keys.Up):
-		if m.cursor > 0 {
-			m.cursor--
-		}
-	case key.Matches(msg, keys.Down):
-		if m.cursor < rowCount-1 {
-			m.cursor++
-		}
-	case key.Matches(msg, keys.PageUp):
-		m.cursor -= m.pageSize()
-		if m.cursor < 0 {
-			m.cursor = 0
-		}
-	case key.Matches(msg, keys.PageDown):
-		m.cursor += m.pageSize()
-		if m.cursor >= rowCount {
-			m.cursor = rowCount - 1
-		}
-	case key.Matches(msg, keys.GoTop):
-		m.cursor = 0
-	case key.Matches(msg, keys.GoBottom):
-		m.cursor = rowCount - 1
-	}
-}
-
-func (m *tasksModel) pageSize() int {
-	visible := m.visibleRows()
-	if visible < 1 {
-		return 1
-	}
-	return visible / 2
-}
-
-func (m *tasksModel) visibleRows() int {
-	// Height minus header (2 lines with border) minus bottom border
-	v := m.height - 4
-	if v < 1 {
-		return 1
-	}
-	return v
-}
-
-func (m *tasksModel) scrollOffset() int {
-	visible := m.visibleRows()
-	if m.cursor >= visible {
-		return m.cursor - visible + 1
-	}
-	return 0
-}
 
 func (m *tasksModel) rebuildTable() {
 	if len(m.columns) == 0 {
@@ -281,14 +224,9 @@ func (m *tasksModel) rebuildTable() {
 	}
 
 	// Set cursor
-	if len(m.rowData) > 0 {
-		m.cursor = selectIdx
-		if m.cursor >= len(m.rowData) {
-			m.cursor = len(m.rowData) - 1
-		}
-	} else {
-		m.cursor = 0
-	}
+	m.cur.total = len(m.rowData)
+	m.cur.cursor = selectIdx
+	m.cur.clamp()
 	m.selectID = 0
 }
 
@@ -297,8 +235,8 @@ func (m tasksModel) View() string {
 		return "No tasks."
 	}
 
-	offset := m.scrollOffset()
-	cursor := m.cursor
+	offset := m.cur.scrollOffset()
+	cursor := m.cur.cursor
 
 	t := ltable.New().
 		Headers(m.labels...).
@@ -333,14 +271,15 @@ func (m tasksModel) View() string {
 func (m *tasksModel) SetSize(width, height int) {
 	m.width = width
 	m.height = height
+	m.cur.height = height
 }
 
 // SelectedTask returns the currently selected task, or nil.
 func (m *tasksModel) SelectedTask() *taskwarrior.Task {
-	if m.cursor < 0 || m.cursor >= len(m.tasks) {
+	if m.cur.cursor < 0 || m.cur.cursor >= len(m.tasks) {
 		return nil
 	}
-	return &m.tasks[m.cursor]
+	return &m.tasks[m.cur.cursor]
 }
 
 // computeVirtualTags assigns virtual tags to all tasks.

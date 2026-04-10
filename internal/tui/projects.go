@@ -6,9 +6,9 @@ import (
 
 	"task-tui/internal/taskwarrior"
 
-	"charm.land/bubbles/v2/table"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	ltable "charm.land/lipgloss/v2/table"
 	"charm.land/log/v2"
 )
 
@@ -20,40 +20,18 @@ type projectAggregate struct {
 }
 
 type projectsModel struct {
-	table table.Model
-	cli   *taskwarrior.TaskCli
-	width int
-	height int
+	labels  []string
+	rowData [][]string
+	cur     cursorState
+	cli     *taskwarrior.TaskCli
+	width   int
+	height  int
 }
 
 func newProjectsModel(cli *taskwarrior.TaskCli) projectsModel {
-	cols := []table.Column{
-		{Title: "Project", Width: 30},
-		{Title: "Remaining", Width: 12},
-		{Title: "Completed", Width: 12},
-		{Title: "Urgency", Width: 12},
-	}
-
-	t := table.New(
-		table.WithColumns(cols),
-		table.WithFocused(true),
-	)
-
-	s := table.DefaultStyles()
-	s.Header = s.Header.
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		BorderBottom(true).
-		Bold(true)
-	s.Selected = s.Selected.
-		Foreground(lipgloss.Color("229")).
-		Background(lipgloss.Color("57")).
-		Bold(false)
-	t.SetStyles(s)
-
 	return projectsModel{
-		table: t,
-		cli:   cli,
+		labels: []string{"Project", "Remaining", "Completed", "Urgency"},
+		cli:    cli,
 	}
 }
 
@@ -84,14 +62,11 @@ func (m projectsModel) Update(msg tea.Msg) (projectsModel, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyPressMsg:
-		var cmd tea.Cmd
-		m.table, cmd = m.table.Update(msg)
-		return m, cmd
+		m.cur.handleKey(msg)
+		return m, nil
 	}
 
-	var cmd tea.Cmd
-	m.table, cmd = m.table.Update(msg)
-	return m, cmd
+	return m, nil
 }
 
 func (m *projectsModel) rebuildTable(tasks []taskwarrior.Task) {
@@ -127,14 +102,14 @@ func (m *projectsModel) rebuildTable(tasks []taskwarrior.Task) {
 	}
 	sort.Strings(names)
 
-	rows := make([]table.Row, 0, len(names))
+	m.rowData = make([][]string, 0, len(names))
 	for _, name := range names {
 		a := agg[name]
 		pct := ""
 		if a.total > 0 {
 			pct = fmt.Sprintf("%d (%d%%)", a.pending, a.completed*100/a.total)
 		}
-		rows = append(rows, table.Row{
+		m.rowData = append(m.rowData, []string{
 			name,
 			fmt.Sprintf("%d", a.pending),
 			pct,
@@ -142,25 +117,49 @@ func (m *projectsModel) rebuildTable(tasks []taskwarrior.Task) {
 		})
 	}
 
-	m.table.SetRows(rows)
+	m.cur.total = len(m.rowData)
+	m.cur.clamp()
 }
 
 func (m projectsModel) View() string {
-	return m.table.View()
+	if len(m.rowData) == 0 {
+		return "No projects."
+	}
+
+	offset := m.cur.scrollOffset()
+	cursor := m.cur.cursor
+
+	t := ltable.New().
+		Headers(m.labels...).
+		Rows(m.rowData...).
+		Width(m.width).
+		Height(m.height - 2).
+		YOffset(offset).
+		Border(lipgloss.NormalBorder()).
+		BorderStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("240"))).
+		BorderHeader(true).
+		BorderTop(false).
+		BorderBottom(false).
+		BorderLeft(false).
+		BorderRight(false).
+		BorderColumn(false).
+		BorderRow(false).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			if row == ltable.HeaderRow {
+				return headerStyle
+			}
+			style := lipgloss.NewStyle()
+			if row == cursor {
+				style = style.Underline(true)
+			}
+			return style
+		})
+
+	return lipgloss.NewStyle().PaddingLeft(1).Render(t.Render())
 }
 
 func (m *projectsModel) SetSize(width, height int) {
 	m.width = width
 	m.height = height
-	m.table.SetWidth(width)
-	m.table.SetHeight(height - 2)
-
-	// Recalculate column widths
-	cols := []table.Column{
-		{Title: "Project", Width: width - 42},
-		{Title: "Remaining", Width: 12},
-		{Title: "Completed", Width: 12},
-		{Title: "Urgency", Width: 12},
-	}
-	m.table.SetColumns(cols)
+	m.cur.height = height
 }

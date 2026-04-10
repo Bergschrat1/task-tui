@@ -3,46 +3,26 @@ package tui
 import (
 	"task-tui/internal/taskwarrior"
 
-	"charm.land/bubbles/v2/table"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	ltable "charm.land/lipgloss/v2/table"
 	"charm.land/log/v2"
 )
 
 type contextsModel struct {
-	table    table.Model
+	labels   []string
+	rowData  [][]string
 	contexts []taskwarrior.ContextInfo
+	cur      cursorState
 	cli      *taskwarrior.TaskCli
 	width    int
 	height   int
 }
 
 func newContextsModel(cli *taskwarrior.TaskCli) contextsModel {
-	cols := []table.Column{
-		{Title: "Context", Width: 20},
-		{Title: "Filter", Width: 50},
-	}
-
-	t := table.New(
-		table.WithColumns(cols),
-		table.WithFocused(true),
-	)
-
-	s := table.DefaultStyles()
-	s.Header = s.Header.
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		BorderBottom(true).
-		Bold(true)
-	s.Selected = s.Selected.
-		Foreground(lipgloss.Color("229")).
-		Background(lipgloss.Color("57")).
-		Bold(false)
-	t.SetStyles(s)
-
 	return contextsModel{
-		table: t,
-		cli:   cli,
+		labels: []string{"Context", "Filter"},
+		cli:    cli,
 	}
 }
 
@@ -75,18 +55,15 @@ func (m contextsModel) Update(msg tea.Msg) (contextsModel, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyPressMsg:
-		var cmd tea.Cmd
-		m.table, cmd = m.table.Update(msg)
-		return m, cmd
+		m.cur.handleKey(msg)
+		return m, nil
 	}
 
-	var cmd tea.Cmd
-	m.table, cmd = m.table.Update(msg)
-	return m, cmd
+	return m, nil
 }
 
 func (m *contextsModel) rebuildTable() {
-	rows := make([]table.Row, len(m.contexts))
+	m.rowData = make([][]string, len(m.contexts))
 	activeIdx := 0
 	for i, ctx := range m.contexts {
 		name := ctx.Name
@@ -94,34 +71,60 @@ func (m *contextsModel) rebuildTable() {
 			name += " *"
 			activeIdx = i
 		}
-		rows[i] = table.Row{name, ctx.ReadFilter}
+		m.rowData[i] = []string{name, ctx.ReadFilter}
 	}
-	m.table.SetRows(rows)
-	m.table.SetCursor(activeIdx)
+	m.cur.total = len(m.rowData)
+	m.cur.cursor = activeIdx
+	m.cur.clamp()
 }
 
 func (m contextsModel) View() string {
-	return m.table.View()
+	if len(m.rowData) == 0 {
+		return "No contexts."
+	}
+
+	offset := m.cur.scrollOffset()
+	cursor := m.cur.cursor
+
+	t := ltable.New().
+		Headers(m.labels...).
+		Rows(m.rowData...).
+		Width(m.width).
+		Height(m.height - 2).
+		YOffset(offset).
+		Border(lipgloss.NormalBorder()).
+		BorderStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("240"))).
+		BorderHeader(true).
+		BorderTop(false).
+		BorderBottom(false).
+		BorderLeft(false).
+		BorderRight(false).
+		BorderColumn(false).
+		BorderRow(false).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			if row == ltable.HeaderRow {
+				return headerStyle
+			}
+			style := lipgloss.NewStyle()
+			if row == cursor {
+				style = style.Underline(true)
+			}
+			return style
+		})
+
+	return lipgloss.NewStyle().PaddingLeft(1).Render(t.Render())
 }
 
 func (m *contextsModel) SetSize(width, height int) {
 	m.width = width
 	m.height = height
-	m.table.SetWidth(width)
-	m.table.SetHeight(height - 2)
-
-	cols := []table.Column{
-		{Title: "Context", Width: 20},
-		{Title: "Filter", Width: width - 26},
-	}
-	m.table.SetColumns(cols)
+	m.cur.height = height
 }
 
 // SelectedContext returns the currently selected context.
 func (m *contextsModel) SelectedContext() *taskwarrior.ContextInfo {
-	cursor := m.table.Cursor()
-	if cursor < 0 || cursor >= len(m.contexts) {
+	if m.cur.cursor < 0 || m.cur.cursor >= len(m.contexts) {
 		return nil
 	}
-	return &m.contexts[cursor]
+	return &m.contexts[m.cur.cursor]
 }
