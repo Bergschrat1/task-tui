@@ -3,7 +3,7 @@ package tui
 import (
 	"fmt"
 
-	"task-tui-go/internal/taskwarrior"
+	"task-tui/internal/taskwarrior"
 
 	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"

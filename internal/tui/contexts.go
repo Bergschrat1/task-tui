@@ -1,7 +1,7 @@
 package tui
 
 import (
-	"task-tui-go/internal/taskwarrior"
+	"task-tui/internal/taskwarrior"
 
 	"charm.land/bubbles/v2/table"
 	tea "charm.land/bubbletea/v2"

@@ -1,2 +1,0 @@
-class TaskStoreError(Exception):
-    pass

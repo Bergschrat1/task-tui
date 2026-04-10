@@ -4,60 +4,55 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-task-tui is a terminal user interface (TUI) for Taskwarrior built with Python 3.13+, Textual, and Typer.
+task-tui is a terminal user interface (TUI) for Taskwarrior built with Go and Bubble Tea. It uses v2 of all the libraries from the Charm project.
 
 ## Development Commands
 
 ```bash
-nix develop              # Enter nix shell for development. This Has to be run before any of the other commands because uv is only available in the nix shell
-uv run task_tui          # Launch the TUI (or just `task-tui` if installed)
-uv run task_tui health   # Smoke check that CLI bootstraps correctly
-uv run ruff check src tests  # Lint
-uv run ruff format       # Format
-uv run ty check          # Type check
-uv run pytest            # Run tests
-uv run pytest -k <pattern>  # Run specific tests
-just                     # Run format, lint, typecheck, and test
+nix develop          # Enter nix shell (provides go, gotools, gopls, golangci-lint)
+go build ./...       # Build
+go run .             # Launch the TUI (default report: next)
+go run . --report next --verbose  # Launch with debug logging
+go test ./...        # Run tests
+golangci-lint run    # Lint
 ```
 
 ## Architecture
 
-### Module Structure (`src/task_tui/`)
+### Package Structure
 
-- **main.py**: Typer CLI entry point. Defines `health` and `task_tui` commands. Default invocation runs the TUI.
-- **app.py**: Core Textual application (`TaskTuiApp`). Contains:
-  - `TaskStore`: In-memory task collection with virtual tag computation and column accessors
-  - Tab management (Tasks, Projects, Contexts)
-  - All task actions (add, done, delete, modify, annotate, start/stop, log)
-- **task_cli.py**: `TaskCli` class wraps Taskwarrior CLI commands via subprocess. Handles task export, context management, and all task mutations.
-- **widgets.py**: Custom Textual widgets:
-  - `RowMarkerTable`: DataTable variant showing `▶` row indicator instead of cell highlights
-  - `TaskReport`: Main task table with vim-style keybindings (j/k navigation)
-  - `ProjectSummary`/`ContextSummary`: Aggregation tables
-  - `ConfirmDialog`/`TextInput`: Modal screens for user input
-- **data_models.py**: Pydantic models for `Task`, `ContextInfo`, and enums (`Status`, `VirtualTag`)
-- **config.py**: Parses Taskwarrior's `task show` output into color styles and settings
+- **main.go**: Entry point. Parses `--report` and `--verbose` flags, sets up file logging, creates TaskCli and TUI model, runs Bubble Tea program.
+- **internal/taskwarrior/**: Taskwarrior domain layer (not importable outside this module)
+  - `cli.go`: `TaskCli` wraps Taskwarrior CLI via subprocess. Handles task export, context management, and all task mutations.
+  - `models.go`: `Task` struct with JSON deserialization, `ContextInfo`, `Status`/`VirtualTag` enums.
+  - `config.go`: Parses `task show` output into `Config` (due days, color precedence, color rules).
+  - `color.go`: `TaskStyle` (fg/bg/bold/underline), color config parsing (named colors, colorN, rgbRGB, grayN).
+- **internal/tui/**: Bubble Tea UI layer
+  - `app.go`: Root `Model` with tab management, dialog state, message routing. Implements Elm architecture (Init/Update/View).
+  - `tasks.go`: Tasks tab using lipgloss/v2/table renderer with per-row color styling and manual cursor/scroll.
+  - `projects.go`: Projects tab with task count aggregation per project.
+  - `contexts.go`: Contexts tab with context switching.
+  - `dialog.go`: Confirm and text input dialog models.
+  - `keys.go`: Key bindings (`keyMap` struct) and per-tab `help.KeyMap` implementations.
+  - `style.go`: Resolves task virtual tags to composite `TaskStyle` via color precedence rules.
+- **internal/util/**: Shared utilities
+  - `vague.go`: Human-friendly date formatting ("2h ago", "3d", "1w").
 
 ### Data Flow
 
-1. `TaskCli.export_tasks()` runs `task export <report>` with context filters
-2. JSON output parsed into `Task` Pydantic models
-3. `TaskStore` wraps tasks, computes virtual tags (OVERDUE, BLOCKED, ACTIVE, etc.)
-4. `TaskTuiApp._update_table()` reads columns from report config and renders via `TaskReport`
+1. `TaskCli.ExportTasks()` runs `task export <report>` with context filters
+2. JSON output unmarshaled into `[]Task`
+3. `computeVirtualTags()` assigns virtual tags (OVERDUE, BLOCKED, ACTIVE, etc.)
+4. `resolveTaskStyle()` maps virtual tags to color styles via Taskwarrior's `rule.precedence.color`
+5. `tasksModel.View()` renders via lipgloss table with `StyleFunc` for per-row coloring
 
 ### Key Patterns
 
-- Task actions post `TasksChanged` message to trigger table refresh
-- Virtual tags derive from task state (due dates, dependencies, status) per `TaskStore._update_virtual_tags()`
-- Color precedence from Taskwarrior config determines row styling
-
-## Coding Standards
-
-- Type hints required on all public callables; avoid `typing.Any`
-- 150-character line limit enforced by ruff
-- Google-style docstrings (ruff ANN/D rules)
-- Tests in `tests/` using pytest; fixtures in `test_data/`
+- Elm architecture: `Model.Update(msg) -> (Model, Cmd)` with async commands returning messages
+- Task actions return `tea.Cmd` closures that invoke TaskCli, then return refresh messages
+- Dialog state managed via `dialogKind` enum + `pendingAction` + `pendingTask` on root model
+- Tab-specific messages (e.g., `taskRefreshMsg`) routed in root `Update()` before tab dispatch
 
 ## Debugging
 
-Runtime logs written to `task-tui.log`. Check this file first for UI issues.
+Runtime logs written to `task-tui.log`. Use `--verbose` for debug-level output. Check this file first for UI issues.

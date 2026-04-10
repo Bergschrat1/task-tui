@@ -1,4 +1,4 @@
-module task-tui-go
+module task-tui
 
 go 1.26.1
 

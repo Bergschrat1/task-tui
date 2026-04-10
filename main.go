@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"task-tui-go/internal/taskwarrior"
-	"task-tui-go/internal/tui"
+	"task-tui/internal/taskwarrior"
+	"task-tui/internal/tui"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/log/v2"

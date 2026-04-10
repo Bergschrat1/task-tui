@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"time"
 
-	"task-tui-go/internal/taskwarrior"
-	"task-tui-go/internal/util"
+	"task-tui/internal/taskwarrior"
+	"task-tui/internal/util"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"

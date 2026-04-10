@@ -3,7 +3,7 @@ package tui
 import (
 	"strings"
 
-	"task-tui-go/internal/taskwarrior"
+	"task-tui/internal/taskwarrior"
 )
 
 // allVirtualTags lists all virtual tags for iteration during style resolution.
