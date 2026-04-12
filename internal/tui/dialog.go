@@ -52,7 +52,7 @@ func (m confirmModel) Update(msg tea.Msg) (confirmModel, tea.Cmd, *bool) {
 	return m, nil, nil
 }
 
-func (m confirmModel) View(width, height int) string {
+func (m confirmModel) View() string {
 	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("62")).
@@ -66,8 +66,7 @@ func (m confirmModel) View(width, height int) string {
 		lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render("[y]es / [n]o"),
 	)
 
-	box := boxStyle.Render(content)
-	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, box)
+	return boxStyle.Render(content)
 }
 
 // textInputModel handles single-line text input.
@@ -106,11 +105,10 @@ func (m textInputModel) Update(msg tea.Msg) (textInputModel, tea.Cmd, *string) {
 	return m, cmd, nil
 }
 
-func (m textInputModel) View(width, height int) string {
+func (m textInputModel) View() string {
 	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("62")).
-		Padding(1, 2).
 		Width(50).
 		Align(lipgloss.Center)
 
@@ -122,6 +120,5 @@ func (m textInputModel) View(width, height int) string {
 		lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render("[enter] submit / [esc] cancel"),
 	)
 
-	box := boxStyle.Render(content)
-	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, box)
+	return boxStyle.Render(content)
 }

@@ -420,18 +420,24 @@ func (m Model) View() tea.View {
 	spacer := lipgloss.NewStyle().Height(gap).Render("")
 
 	view := lipgloss.JoinVertical(lipgloss.Left, tabBar, content, spacer, footer)
+	baseLayer := lipgloss.NewLayer(view)
+	compositor := lipgloss.NewCompositor(baseLayer)
 
 	// Overlay dialog if active
 	if m.dialog != dialogNone {
+		var dialogView string
 		switch m.dialog {
 		case dialogConfirm:
-			view = m.confirmDialog.View(m.width, m.height)
+			dialogView = m.confirmDialog.View()
 		case dialogTextInput:
-			view = m.inputDialog.View(m.width, m.height)
+			dialogView = m.inputDialog.View()
 		}
+		popupLayer := lipgloss.NewLayer(dialogView)
+		compositor.AddLayers(popupLayer.X(m.width/2 - popupLayer.Width()/2).Y(m.height/2 - popupLayer.Height()/2))
+
 	}
 
-	v := tea.NewView(view)
+	v := tea.NewView(compositor.Render())
 	v.AltScreen = true
 	return v
 }
