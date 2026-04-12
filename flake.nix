@@ -15,7 +15,10 @@
       devShells = forAllSystems (
         system:
         let
-          pkgs = nixpkgs.legacyPackages.${system};
+          pkgs = import nixpkgs {
+            inherit system;
+            config.allowUnfree = true;
+          };
         in
         {
           default = pkgs.mkShell {
@@ -24,6 +27,8 @@
               pkgs.gotools
               pkgs.golangci-lint
               pkgs.gopls
+              pkgs.mistral-vibe
+              pkgs.sox
             ];
 
             TASKDATA = "/home/jokeh/projects/task-tui/test_data/";
