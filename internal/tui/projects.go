@@ -127,7 +127,6 @@ func (m projectsModel) View() string {
 	}
 
 	offset := m.cur.scrollOffset()
-	cursor := m.cur.cursor
 
 	t := ltable.New().
 		Headers(m.labels...).
@@ -148,14 +147,11 @@ func (m projectsModel) View() string {
 			if row == ltable.HeaderRow {
 				return headerStyle
 			}
-			style := lipgloss.NewStyle()
-			if row == cursor {
-				style = style.Underline(true)
-			}
-			return style
+			return lipgloss.NewStyle()
 		})
 
-	return lipgloss.NewStyle().PaddingLeft(1).Render(t.Render())
+	rendered := m.cur.underlineRow(t.Render())
+	return lipgloss.NewStyle().PaddingLeft(1).Render(rendered)
 }
 
 func (m *projectsModel) SetSize(width, height int) {

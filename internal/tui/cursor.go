@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"strings"
+
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 )
@@ -65,6 +67,21 @@ func (c *cursorState) scrollOffset() int {
 		return c.cursor - visible + 1
 	}
 	return 0
+}
+
+// underlineRow wraps the cursor row's line in the rendered table with ANSI
+// underline codes so the underline spans the full table width.
+func (c *cursorState) underlineRow(rendered string) string {
+	lines := strings.Split(rendered, "\n")
+	// +2 accounts for header text line and header border line
+	idx := c.cursor - c.scrollOffset() + 2
+	if idx >= 0 && idx < len(lines) {
+		// Replace ANSI resets with reset+underline so underline persists
+		// through per-cell color styles. termenv emits \033[m (not \033[0m).
+		line := strings.ReplaceAll(lines[idx], "\033[m", "\033[4m")
+		lines[idx] = "\033[4m" + line + "\033[m"
+	}
+	return strings.Join(lines, "\n")
 }
 
 func (c *cursorState) clamp() {

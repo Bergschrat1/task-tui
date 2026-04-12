@@ -158,7 +158,6 @@ func (m tasksModel) Update(msg tea.Msg) (tasksModel, tea.Cmd) {
 	return m, nil
 }
 
-
 func (m *tasksModel) rebuildTable() {
 	if len(m.columns) == 0 {
 		return
@@ -236,7 +235,6 @@ func (m tasksModel) View() string {
 	}
 
 	offset := m.cur.scrollOffset()
-	cursor := m.cur.cursor
 
 	t := ltable.New().
 		Headers(m.labels...).
@@ -257,15 +255,11 @@ func (m tasksModel) View() string {
 			if row == ltable.HeaderRow {
 				return headerStyle
 			}
-			// row is 0-indexed from the full data set
-			style := m.rowStyles[row].ToLipgloss()
-			if row == cursor {
-				style = style.Underline(true)
-			}
-			return style
+			return m.rowStyles[row].ToLipgloss()
 		})
 
-	return lipgloss.NewStyle().PaddingLeft(1).Render(t.Render())
+	rendered := m.cur.underlineRow(t.Render())
+	return lipgloss.NewStyle().PaddingLeft(1).Render(rendered)
 }
 
 func (m *tasksModel) SetSize(width, height int) {
