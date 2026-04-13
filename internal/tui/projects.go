@@ -6,6 +6,7 @@ import (
 
 	"task-tui/internal/taskwarrior"
 
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	ltable "charm.land/lipgloss/v2/table"
@@ -158,4 +159,19 @@ func (m *projectsModel) SetSize(width, height int) {
 	m.width = width
 	m.height = height
 	m.cur.height = height
+}
+
+// projectsKeyMap defines the help key map for the projects tab.
+type projectsKeyMap struct{}
+
+func (projectsKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{
+		keys.Up, keys.Down, keys.PrevTab, keys.NextTab, keys.Quit,
+	}
+}
+
+func (projectsKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{keys.Up, keys.Down, keys.PrevTab, keys.NextTab, keys.Quit},
+	}
 }

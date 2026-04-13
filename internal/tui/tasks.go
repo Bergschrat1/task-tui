@@ -8,6 +8,7 @@ import (
 	"task-tui/internal/taskwarrior"
 	"task-tui/internal/util"
 
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	ltable "charm.land/lipgloss/v2/table"
@@ -104,6 +105,13 @@ type tasksModel struct {
 	width    int
 	height   int
 	selectID int
+
+	// Dialog state
+	dialog        dialogKind
+	confirmDialog confirmModel
+	inputDialog   textInputModel
+	pending       pendingAction
+	pendingTask   *taskwarrior.Task
 }
 
 func newTasksModel(cli *taskwarrior.TaskCli, cfg *taskwarrior.Config, report string) tasksModel {
@@ -151,12 +159,202 @@ func (m tasksModel) Update(msg tea.Msg) (tasksModel, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyPressMsg:
+		// Route to dialog if active
+		if m.dialog != dialogNone {
+			return m.updateDialog(msg)
+		}
+
+		switch {
+		case key.Matches(msg, keys.Refresh):
+			return m, m.refreshCmd()
+
+		case key.Matches(msg, keys.Add):
+			m.dialog = dialogTextInput
+			m.inputDialog = newTextInputModel("Enter task description:")
+			m.pending = actionAdd
+			return m, m.inputDialog.textInput.Focus()
+
+		case key.Matches(msg, keys.Done):
+			task := m.SelectedTask()
+			if task == nil {
+				return m, nil
+			}
+			m.dialog = dialogConfirm
+			m.confirmDialog = newConfirmModel(fmt.Sprintf("Mark task %d done?\n%s", task.ID, task.Description))
+			m.pending = actionDone
+			m.pendingTask = task
+			return m, nil
+
+		case key.Matches(msg, keys.Delete):
+			task := m.SelectedTask()
+			if task == nil {
+				return m, nil
+			}
+			m.dialog = dialogConfirm
+			m.confirmDialog = newConfirmModel(fmt.Sprintf("Delete task %d?\n%s", task.ID, task.Description))
+			m.pending = actionDelete
+			m.pendingTask = task
+			return m, nil
+
+		case key.Matches(msg, keys.Modify):
+			task := m.SelectedTask()
+			if task == nil {
+				return m, nil
+			}
+			m.dialog = dialogTextInput
+			m.inputDialog = newTextInputModel(fmt.Sprintf("Modify task %d:", task.ID))
+			m.pending = actionModify
+			m.pendingTask = task
+			return m, m.inputDialog.textInput.Focus()
+
+		case key.Matches(msg, keys.Annotate):
+			task := m.SelectedTask()
+			if task == nil {
+				return m, nil
+			}
+			m.dialog = dialogTextInput
+			m.inputDialog = newTextInputModel(fmt.Sprintf("Annotate task %d:", task.ID))
+			m.pending = actionAnnotate
+			m.pendingTask = task
+			return m, m.inputDialog.textInput.Focus()
+
+		case key.Matches(msg, keys.Log):
+			m.dialog = dialogTextInput
+			m.inputDialog = newTextInputModel("Log completed task:")
+			m.pending = actionLog
+			return m, m.inputDialog.textInput.Focus()
+
+		case key.Matches(msg, keys.StartStop):
+			task := m.SelectedTask()
+			if task == nil {
+				return m, nil
+			}
+			return m, m.toggleStartStop(task)
+
+		case key.Matches(msg, keys.Edit):
+			task := m.SelectedTask()
+			if task == nil {
+				return m, nil
+			}
+			m.selectID = task.ID
+			cmd := tea.ExecProcess(m.cli.EditTaskCmd(task), func(err error) tea.Msg {
+				return editFinishedMsg{err: err}
+			})
+			return m, cmd
+		}
+
+		// Fall through to cursor navigation
 		m.cur.handleKey(msg)
 		return m, nil
 	}
 
 	return m, nil
 }
+
+func (m tasksModel) updateDialog(msg tea.Msg) (tasksModel, tea.Cmd) {
+	switch m.dialog {
+	case dialogConfirm:
+		var cmd tea.Cmd
+		var result *bool
+		m.confirmDialog, cmd, result = m.confirmDialog.Update(msg)
+		if result != nil {
+			m.dialog = dialogNone
+			if *result {
+				return m, m.executeAction()
+			}
+			m.pending = actionNone
+			m.pendingTask = nil
+		}
+		return m, cmd
+
+	case dialogTextInput:
+		var cmd tea.Cmd
+		var result *string
+		m.inputDialog, cmd, result = m.inputDialog.Update(msg)
+		if result != nil {
+			m.dialog = dialogNone
+			if *result != "" {
+				return m, m.executeTextAction(*result)
+			}
+			m.pending = actionNone
+			m.pendingTask = nil
+		}
+		return m, cmd
+	}
+
+	return m, nil
+}
+
+func (m *tasksModel) executeAction() tea.Cmd {
+	task := m.pendingTask
+	action := m.pending
+	m.pending = actionNone
+	m.pendingTask = nil
+
+	switch action {
+	case actionDone:
+		return func() tea.Msg {
+			_ = m.cli.SetTaskDone(task)
+			return taskActionDoneMsg{}
+		}
+	case actionDelete:
+		return func() tea.Msg {
+			_ = m.cli.DeleteTask(task)
+			return taskActionDoneMsg{}
+		}
+	}
+	return nil
+}
+
+func (m *tasksModel) executeTextAction(value string) tea.Cmd {
+	task := m.pendingTask
+	action := m.pending
+	m.pending = actionNone
+	m.pendingTask = nil
+
+	switch action {
+	case actionAdd:
+		return func() tea.Msg {
+			id, err := m.cli.AddTask(value)
+			if err != nil {
+				return taskActionDoneMsg{}
+			}
+			return taskAddedMsg{id: id}
+		}
+	case actionModify:
+		return func() tea.Msg {
+			_ = m.cli.ModifyTask(task, value)
+			return taskModifiedMsg{id: task.ID}
+		}
+	case actionAnnotate:
+		return func() tea.Msg {
+			_ = m.cli.AnnotateTask(task, value)
+			return taskModifiedMsg{id: task.ID}
+		}
+	case actionLog:
+		return func() tea.Msg {
+			_ = m.cli.LogTask(value)
+			return taskActionDoneMsg{}
+		}
+	}
+	return nil
+}
+
+func (m *tasksModel) toggleStartStop(task *taskwarrior.Task) tea.Cmd {
+	return func() tea.Msg {
+		if task.Start == nil {
+			_ = m.cli.StartTask(task)
+		} else {
+			_ = m.cli.StopTask(task)
+		}
+		return taskModifiedMsg{id: task.ID}
+	}
+}
+
+type editFinishedMsg struct{ err error }
+type taskActionDoneMsg struct{}
+type taskAddedMsg struct{ id int }
+type taskModifiedMsg struct{ id int }
 
 func (m *tasksModel) rebuildTable() {
 	if len(m.columns) == 0 {
@@ -274,6 +472,25 @@ func (m *tasksModel) SelectedTask() *taskwarrior.Task {
 		return nil
 	}
 	return &m.tasks[m.cur.cursor]
+}
+
+// tasksKeyMap defines the help key map for the tasks tab.
+type tasksKeyMap struct{}
+
+func (tasksKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{
+		keys.Up, keys.Down, keys.Add, keys.Done, keys.Delete,
+		keys.Modify, keys.Annotate, keys.StartStop, keys.Log,
+		keys.Edit, keys.Refresh, keys.PrevTab, keys.NextTab, keys.Quit,
+	}
+}
+
+func (tasksKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{keys.Up, keys.Down, keys.PageUp, keys.PageDown, keys.GoTop, keys.GoBottom},
+		{keys.Add, keys.Done, keys.Delete, keys.Modify, keys.Annotate, keys.StartStop, keys.Log, keys.Edit},
+		{keys.Refresh, keys.PrevTab, keys.NextTab, keys.Quit},
+	}
 }
 
 // computeVirtualTags assigns virtual tags to all tasks.

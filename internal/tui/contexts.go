@@ -3,6 +3,7 @@ package tui
 import (
 	"task-tui/internal/taskwarrior"
 
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	ltable "charm.land/lipgloss/v2/table"
@@ -55,6 +56,13 @@ func (m contextsModel) Update(msg tea.Msg) (contextsModel, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyPressMsg:
+		if key.Matches(msg, keys.Enter) {
+			ctx := m.SelectedContext()
+			if ctx != nil {
+				return m, m.switchContext(ctx)
+			}
+			return m, nil
+		}
 		m.cur.handleKey(msg)
 		return m, nil
 	}
@@ -117,10 +125,34 @@ func (m *contextsModel) SetSize(width, height int) {
 	m.cur.height = height
 }
 
+type contextSwitchedMsg struct{}
+
+func (m contextsModel) switchContext(ctx *taskwarrior.ContextInfo) tea.Cmd {
+	return func() tea.Msg {
+		_ = m.cli.SetContext(ctx.Name)
+		return contextSwitchedMsg{}
+	}
+}
+
 // SelectedContext returns the currently selected context.
 func (m *contextsModel) SelectedContext() *taskwarrior.ContextInfo {
 	if m.cur.cursor < 0 || m.cur.cursor >= len(m.contexts) {
 		return nil
 	}
 	return &m.contexts[m.cur.cursor]
+}
+
+// contextsKeyMap defines the help key map for the contexts tab.
+type contextsKeyMap struct{}
+
+func (contextsKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{
+		keys.Up, keys.Down, keys.Enter, keys.PrevTab, keys.NextTab, keys.Quit,
+	}
+}
+
+func (contextsKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{keys.Up, keys.Down, keys.Enter, keys.PrevTab, keys.NextTab, keys.Quit},
+	}
 }
